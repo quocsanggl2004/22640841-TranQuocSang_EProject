@@ -30,10 +30,30 @@ class App {
   setMiddlewares() {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: false }));
+    
+    // CORS middleware
+    this.app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+      } else {
+        next();
+      }
+    });
   }
 
   setRoutes() {
+    // Health check endpoint
+    this.app.get("/health", (req, res) => {
+      res.json({ status: "Product service is running", timestamp: new Date().toISOString() });
+    });
+    
     this.app.use("/api/products", productsRouter);
+    // Also make products available directly at root for easier access
+    this.app.use("/", productsRouter);
   }
 
   setupMessageBroker() {
@@ -41,9 +61,17 @@ class App {
   }
 
   start() {
-    this.server = this.app.listen(3001, () =>
-      console.log("Server started on port 3001")
-    );
+    const port = config.port || 3002;
+    this.server = this.app.listen(port, () => {
+      console.log(`Product service started on port ${port}`);
+      console.log(`Available endpoints:`);
+      console.log(`- GET http://localhost:${port}/health`);
+      console.log(`- GET http://localhost:${port}/api/products`);
+      console.log(`- POST http://localhost:${port}/api/products`);
+      console.log(`- GET http://localhost:${port}/api/products/:id`);
+      console.log(`- PUT http://localhost:${port}/api/products/:id`);
+      console.log(`- DELETE http://localhost:${port}/api/products/:id`);
+    });
   }
 
   async stop() {

@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: eproject-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - eproject-network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: eproject-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"    # AMQP port
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - eproject-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: eproject-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - API_GATEWAY_PORT=3000
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+    networks:
+      - eproject-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: eproject-auth-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - AUTH_SERVICE_PORT=3001
+      - MONGODB_AUTH_URI=mongodb://mongodb:27017/auth_db
+      - JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
+    depends_on:
+      - mongodb
+    networks:
+      - eproject-network
+
+  # Product Service
+  product-service:
+    build:
+      context: ./product
+      dockerfile: Dockerfile
+    container_name: eproject-product-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - PRODUCT_SERVICE_PORT=3002
+      - MONGODB_PRODUCT_URI=mongodb://mongodb:27017/product_db
+      - RABBITMQ_URI=amqp://rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - eproject-network
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order
+      dockerfile: Dockerfile
+    container_name: eproject-order-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      - ORDER_SERVICE_PORT=3003
+      - MONGODB_ORDER_URI=mongodb://mongodb:27017/order_db
+      - RABBITMQ_URI=amqp://rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - eproject-network
+
+volumes:
+  mongodb_data:
+  rabbitmq_data:
+
+networks:
+  eproject-network:
+    driver: bridge
