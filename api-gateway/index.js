@@ -5,10 +5,7 @@ const httpProxy = require("http-proxy");
 const proxy = httpProxy.createProxyServer();
 const app = express();
 
-// Middleware for parsing JSON
-app.use(express.json());
-
-// CORS middleware
+// CORS middleware (before proxy)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -26,8 +23,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'API Gateway is running', timestamp: new Date().toISOString() });
 });
 
-// Route requests to the auth service
+// Route requests to the auth service (Port 3000)
 app.use("/auth", (req, res) => {
+  console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to auth service`);
+  proxy.web(req, res, { 
+    target: "http://localhost:3000/",
+    changeOrigin: true,
+    timeout: 5000
+  });
+});
+
+// Route requests to the product service (Port 3001)
+app.use("/products", (req, res) => {
+  console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to product service`);
   proxy.web(req, res, { 
     target: "http://localhost:3001",
     changeOrigin: true,
@@ -35,8 +43,9 @@ app.use("/auth", (req, res) => {
   });
 });
 
-// Route requests to the product service
-app.use("/products", (req, res) => {
+// Route requests to the order service (Port 3002)
+app.use("/orders", (req, res) => {
+  console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to order service`);
   proxy.web(req, res, { 
     target: "http://localhost:3002",
     changeOrigin: true,
@@ -44,30 +53,34 @@ app.use("/products", (req, res) => {
   });
 });
 
-// Route requests to the order service
-app.use("/orders", (req, res) => {
-  proxy.web(req, res, { 
-    target: "http://localhost:3003",
-    changeOrigin: true,
-    timeout: 5000
-  });
-});
-
 // Error handling for proxy
 proxy.on('error', (err, req, res) => {
-  console.error('Proxy error:', err);
+  console.error('[API Gateway] Proxy error:', err.message);
+  console.error('[API Gateway] Target URL:', req.url);
   if (!res.headersSent) {
-    res.status(500).json({ error: 'Service temporarily unavailable' });
+    res.status(502).json({ 
+      error: 'Service temporarily unavailable',
+      details: err.message,
+      service: req.url.split('/')[1]
+    });
   }
 });
 
-// Start the server
-const port = process.env.API_GATEWAY_PORT || 3000;
+proxy.on('proxyReq', (proxyReq, req, res) => {
+  console.log(`[API Gateway] Forwarding ${req.method} ${req.url} to ${proxyReq.getHeader('host')}`);
+});
+
+proxy.on('proxyRes', (proxyRes, req, res) => {
+  console.log(`[API Gateway] Response ${proxyRes.statusCode} from ${req.url}`);
+});
+
+// Start the server on port 3003
+const port = process.env.API_GATEWAY_PORT || 3003;
 app.listen(port, () => {
   console.log(`API Gateway listening on port ${port}`);
   console.log(`Available routes:`);
   console.log(`- http://localhost:${port}/health`);
-  console.log(`- http://localhost:${port}/auth/*`);
-  console.log(`- http://localhost:${port}/products/*`);
-  console.log(`- http://localhost:${port}/orders/*`);
+  console.log(`- http://localhost:${port}/auth/* → Auth Service (3000)`);
+  console.log(`- http://localhost:${port}/products/* → Product Service (3001)`);
+  console.log(`- http://localhost:${port}/orders/* → Order Service (3002)`);
 });

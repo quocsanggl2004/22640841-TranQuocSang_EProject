@@ -51,10 +51,10 @@ class App {
       res.json({ status: "Order service is running", timestamp: new Date().toISOString() });
     });
 
-    // Get all orders for a user
-    this.app.get("/", isAuthenticated, async (req, res) => {
+    // API routes with /api/orders prefix
+    this.app.get("/api/orders", isAuthenticated, async (req, res) => {
       try {
-        const orders = await Order.find({ user: req.user.username });
+        const orders = await Order.find({ userId: req.user.id });
         res.json(orders);
       } catch (error) {
         res.status(500).json({ error: error.message });
@@ -62,30 +62,77 @@ class App {
     });
 
     // Get specific order
-    this.app.get("/:id", isAuthenticated, async (req, res) => {
+    this.app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
       try {
         const order = await Order.findById(req.params.id);
         if (!order) {
           return res.status(404).json({ error: "Order not found" });
         }
+        
+        // Check if order belongs to user
+        if (order.userId.toString() !== req.user.id) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+        
         res.json(order);
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
     });
 
-    // Create order (this could be triggered by message queue)
-    this.app.post("/", isAuthenticated, async (req, res) => {
+    // Create order with proper structure
+    this.app.post("/api/orders", isAuthenticated, async (req, res) => {
       try {
-        const { products } = req.body;
+        const { items, totalAmount, shippingAddress } = req.body;
+        
+        // Validate required fields
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          return res.status(400).json({ error: "Items are required" });
+        }
+        
+        if (!totalAmount || totalAmount <= 0) {
+          return res.status(400).json({ error: "Valid total amount is required" });
+        }
+        
         const newOrder = new Order({
-          products,
-          user: req.user.username,
-          totalPrice: products.reduce((acc, product) => acc + product.price, 0),
+          userId: req.user.id,
+          items: items,
+          totalAmount: totalAmount,
+          shippingAddress: shippingAddress || "",
+          status: "pending",
+          createdAt: new Date()
         });
         
         await newOrder.save();
-        res.status(201).json(newOrder);
+        
+        res.status(201).json({ 
+          success: true, 
+          order: newOrder,
+          message: "Order created successfully" 
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Update order status
+    this.app.put("/api/orders/:id/status", isAuthenticated, async (req, res) => {
+      try {
+        const { status } = req.body;
+        const order = await Order.findById(req.params.id);
+        
+        if (!order) {
+          return res.status(404).json({ error: "Order not found" });
+        }
+        
+        order.status = status;
+        await order.save();
+        
+        res.json({ 
+          success: true, 
+          order: order,
+          message: "Order status updated successfully" 
+        });
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
@@ -144,9 +191,10 @@ class App {
       console.log(`Order service started on port ${port}`);
       console.log(`Available endpoints:`);
       console.log(`- GET http://localhost:${port}/health`);
-      console.log(`- GET http://localhost:${port}/ (get user orders)`);
-      console.log(`- GET http://localhost:${port}/:id (get specific order)`);
-      console.log(`- POST http://localhost:${port}/ (create order)`);
+      console.log(`- GET http://localhost:${port}/api/orders (get user orders)`);
+      console.log(`- GET http://localhost:${port}/api/orders/:id (get specific order)`);
+      console.log(`- POST http://localhost:${port}/api/orders (create order)`);
+      console.log(`- PUT http://localhost:${port}/api/orders/:id/status (update status)`);
     });
   }
 

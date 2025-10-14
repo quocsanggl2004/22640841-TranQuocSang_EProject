@@ -40,9 +40,9 @@ services:
     container_name: eproject-api-gateway
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3003:3003"
     environment:
-      - API_GATEWAY_PORT=3000
+      - API_GATEWAY_PORT=3003
     depends_on:
       - auth-service
       - product-service
@@ -58,9 +58,9 @@ services:
     container_name: eproject-auth-service
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3000:3000"
     environment:
-      - AUTH_SERVICE_PORT=3001
+      - AUTH_SERVICE_PORT=3000
       - MONGODB_AUTH_URI=mongodb://mongodb:27017/auth_db
       - JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
     depends_on:
@@ -76,9 +76,9 @@ services:
     container_name: eproject-product-service
     restart: unless-stopped
     ports:
-      - "3002:3002"
+      - "3001:3001"
     environment:
-      - PRODUCT_SERVICE_PORT=3002
+      - PRODUCT_SERVICE_PORT=3001
       - MONGODB_PRODUCT_URI=mongodb://mongodb:27017/product_db
       - RABBITMQ_URI=amqp://rabbitmq:5672
     depends_on:
@@ -95,9 +95,9 @@ services:
     container_name: eproject-order-service
     restart: unless-stopped
     ports:
-      - "3003:3003"
+      - "3002:3002"
     environment:
-      - ORDER_SERVICE_PORT=3003
+      - ORDER_SERVICE_PORT=3002
       - MONGODB_ORDER_URI=mongodb://mongodb:27017/order_db
       - RABBITMQ_URI=amqp://rabbitmq:5672
     depends_on:
