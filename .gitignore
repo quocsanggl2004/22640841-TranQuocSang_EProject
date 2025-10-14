@@ -125,8 +125,13 @@ public
 .env.production.local
 .env.staging
 
-# Service-level environment files (use root .env instead)
-*/**.env
+# Service-level environment files
+api-gateway/.env
+auth/.env
+product/.env
+order/.env
+
+# Service environment variants
 */**/.env.local
 */**/.env.development
 */**/.env.production
