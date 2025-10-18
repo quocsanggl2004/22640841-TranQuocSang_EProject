@@ -27,27 +27,33 @@ app.get('/health', (req, res) => {
 app.use("/auth", (req, res) => {
   console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to auth service`);
   proxy.web(req, res, { 
-    target: "http://localhost:3000/",
+    target: "http://auth:3000",
     changeOrigin: true,
     timeout: 5000
   });
 });
 
-// Route requests to the product service (Port 3001)
+// Route requests to the product service (Port 3001) - Short path
 app.use("/products", (req, res) => {
   console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to product service`);
+  const newPath = req.url.replace(/^\//, '/api/products/');
+  req.url = newPath;
+  
   proxy.web(req, res, { 
-    target: "http://localhost:3001",
+    target: "http://product:3001",
     changeOrigin: true,
     timeout: 5000
   });
 });
 
-// Route requests to the order service (Port 3002)
+// Route requests to the order service (Port 3002) - Short path  
 app.use("/orders", (req, res) => {
   console.log(`[API Gateway] Proxying ${req.method} ${req.originalUrl} to order service`);
+  const newPath = req.url.replace(/^\//, '/api/orders/');
+  req.url = newPath;
+  
   proxy.web(req, res, { 
-    target: "http://localhost:3002",
+    target: "http://order:3002",
     changeOrigin: true,
     timeout: 5000
   });

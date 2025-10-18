@@ -1,546 +1,221 @@
 # EProject Microservices
 
-## Tổng quan dự án
+Một hướng dẫn ngắn gọn để khởi tạo, build, containerize và test dự án microservices (Node.js + Express + MongoDB + RabbitMQ). README này để bạn có thể nhanh chóng chạy hệ thống local hoặc bằng Docker và test các logic API bằng Postman.
 
-Đây là một hệ thống microservices cho ứng dụng e-commerce, được xây dựng với Node.js, Express, MongoDB và RabbitMQ.
+---
 
-### System Architecture
-```
-API Gateway (Port 3003) - Entry Point
-    ├── Auth Service (Port 3000) - Đăng ký, đăng nhập
-    ├── Product Service (Port 3001) - Quản lý sản phẩm  
-    └── Order Service (Port 3002) - Xử lý đơn hàng
-```
+## Tổng quan (Overview)
 
-### Technologies Used
-- **Node.js & Express.js** - Backend services
-- **MongoDB** - Database
-- **JWT** - Authentication tokens
-- **RabbitMQ** - Message queuing
-- **Docker** - Containerization
+- API Gateway (port 3003) — entry point cho tất cả request
+- Auth service (port 3000) — đăng ký, đăng nhập, verify token
+- Product service (port 3001) — CRUD sản phẩm, endpoint buy
+- Order service (port 3002) — tạo/quản lý đơn hàng
 
-### Main Features
-1. **Authentication** - Register, login, verify token
-2. **Product Management** - CRUD operations
-3. **Order Processing** - Tạo và quản lý đơn hàng
-4. **Message Queuing** - Inter-service communication
-5. **API Gateway** - Request routing
+Services communicate qua RabbitMQ (amqp) và MongoDB.
 
-## Quick Start
+---
 
-### Prerequisites
+## Quick reference — URLs
+
+- API Gateway (recommended): http://localhost:3003
+- Auth (direct): http://localhost:3000
+- Product (direct): http://localhost:3001
+- Order (direct): http://localhost:3002
+- RabbitMQ management UI: http://localhost:15672 (user: admin / pass: password)
+- MongoDB (default): mongodb://localhost:27017
+
+> Khi chạy bằng Docker Compose, containers resolve nhau bằng container name (ví dụ `http://auth:3000`). Khi chạy local (not in Docker), dùng `localhost`.
+
+---
+
+## Prerequisites
+
 - Node.js 18+
-- MongoDB
+- Docker Desktop (nếu chạy bằng Docker) hoặc MongoDB + RabbitMQ local
 - Git
 
-### Installation & Setup
+---
 
-# 1. Install dependencies cho tất cả services
+## Quick local setup (without Docker)
+
+1. Clone repo
+
+```powershell
+git clone https://github.com/quocsanggl2004/22640841-TranQuocSang_EProject.git
+cd 22640841-TranQuocSang_EProject
+```
+
+2. Install dependencies for each service (root package.json has helper scripts)
+
+```powershell
 npm run install:all
+```
 
-# 2. Start tất cả services
+3. Start services locally (dev) — runs services with nodemon (root has scripts)
+
+```powershell
 npm run dev
 ```
 
-### Docker Setup
-```bash
-# Start toàn bộ hệ thống với Docker
-npm run docker:up
+4. Verify health endpoints (open in browser or curl)
 
-# Stop hệ thống
-npm run docker:down
-```
-
-## API Testing với POSTMAN
-
-### 🎯 Quick Reference - Correct URLs
-
-| Service | Via API Gateway (Port 3003) | Direct Access | 
-|---------|------------------------------|---------------|
-| **Auth** | `http://localhost:3003/auth/*` | `http://localhost:3000/*` |
-| **Products** | `http://localhost:3003/products/api/products` | `http://localhost:3001/api/products` |
-| **Orders** | `http://localhost:3003/orders/api/orders` | `http://localhost:3002/api/orders` |
-
-**⚠️ Lưu ý quan trọng**: Luôn dùng API Gateway (port 3003) để test tích hợp đầy đủ!
-
-### Bước 1: Verify Services Running
-Kiểm tra tất cả services đã chạy:
-- **API Gateway**: `GET http://localhost:3003/health`
-![alt text](public/images/img_readme/1.png)
-- **Auth Service**: `GET http://localhost:3000/health` 
-![alt text](public/images/img_readme/2.png) 
-- **Product Service**: `GET http://localhost:3001/health`
-![alt text](public/images/img_readme/3.png)
-- **Order Service**: `GET http://localhost:3002/health`
-![alt text](public/images/img_readme/4.png)
-### Bước 2: Authentication Flow
-
-#### 2.1 Register User
-```
-Method: POST
-URL: http://localhost:3003/auth/register
-Headers: Content-Type: application/json
-Body (JSON):
-{
-  "username": "testuser",
-  "password": "password123"
-}
-```
-![alt text](public/images/img_readme/5.png)
-
-#### 2.2 Login User
-```
-Method: POST
-URL: http://localhost:3003/auth/login
-Headers: Content-Type: application/json
-Body (JSON):
-{
-  "username": "test@testuser.com",
-  "password": "password123"
-}
-```
---Respone trả về sẽ chứa token
-![alt text](public/images/img_readme/6.png)
-
-#### 2.3 Test Protected Endpoints
-```
-Method: GET
-URL: http://localhost:3003/auth/dashboard
-Headers: 
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN_HERE
-```
-![alt text](public/images/img_readme/6.png)
-
-```
-Method: GET  
-URL: http://localhost:3003/auth/verify
-Headers:
-  - Authorization: Bearer YOUR_JWT_TOKEN_HERE
-```
-![alt text](public/images/img_readme/8.png)
-
-### Bước 3: Product Management APIs
-
-**Lưu ý**: Tất cả Product APIs đều cần JWT token trong header `Authorization: Bearer YOUR_TOKEN`
-
-
-#### 3.1 Create New Product
-```
-Method: POST
-URL: http://localhost:3003/products/api/products
-Headers: 
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN
-Body (JSON):
-{
-  "name": "iPhone 15",
-  "description": "Latest iPhone model",
-  "price": 999,
-  "category": "Electronics",
-  "stock": 50
-}
-```
-![alt text](public/images/img_readme/9.png)
-
-
-#### 3.2 Get All Products
-```
-Method: GET
-URL: http://localhost:3003/products/api/products
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/10.png)
-
-#### 3.3 Get Product by ID
-```
-Method: GET
-URL: http://localhost:3003/products/api/products/PRODUCT_ID
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/11.png)
-
-#### 3.4 Update Product
-```
-Method: PUT
-URL: http://localhost:3003/products/api/products/PRODUCT_ID
-Headers:
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN
-Body (JSON):
-{
-  "name": "iPhone 15 Pro",
-  "price": 1099,
-  "stock": 30
-}
-```
-![alt text](public/images/img_readme/12.png)
-
-#### 3.5 Delete Product
-```
-Method: DELETE
-URL: http://localhost:3003/products/api/products/PRODUCT_ID
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/13.png)
-
-### Bước 4: Order Management APIs
-
-#### 4.1 Create New Order
-```
-Method: POST
-URL: http://localhost:3003/orders/api/orders
-Headers:
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN
-Body (JSON):
-{
-  "items": [
-    {
-      "productId": "674d123456789abcdef12345",
-      "quantity": 2,
-      "price": 999
-    }
-  ],
-  "totalAmount": 1998,
-  "shippingAddress": "123 Nguyen Trai, HCM"
-}
-```
-![alt text](public/images/img_readme/14.png)
-
-#### 4.2 Get User's Orders
-```
-Method: GET
-URL: http://localhost:3003/orders/api/orders
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/15.png)
-
-#### 4.3 Get Order by ID
-```
-Method: GET
-URL: http://localhost:3003/orders/api/orders/ORDER_ID_HERE
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/16.png)
-
-#### 4.4 Get Order status
-```
-Method: PUT
-URL: http://localhost:3003/orders/api/orders/ORDER_ID_HERE/status
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-```
-Method: POST
-URL: http://localhost:3000/orders/api/orders
-Headers:
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN
-Body (JSON):
-{
-  "items": [
-    {
-      "productId": "674d123456789abcdef12345",
-      "quantity": 2,
-      "price": 999
-    }
-  ],
-  "totalAmount": 1998,
-  "shippingAddress": "123 Nguyen Trai, HCM"
-}
-```
-![alt text](public/images/img_readme/14.png)
-
-#### 4.2 Get User's Orders
-```
-Method: GET
-URL: http://localhost:3000/orders/api/orders
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-```
-Method: POST
-URL: http://localhost:3000/api/orders
-Headers:
-  - Content-Type: application/json
-  - Authorization: Bearer YOUR_JWT_TOKEN
-Body (JSON):
-{
-  "items": [
-    {
-      "productId": "..",
-      "quantity": 2,
-      "price": 999
-    }
-  ],
-  "totalAmount": 1998,
-  "shippingAddress": "123 Nguyen Trai, HCM"
-}
-```
-![alt text](public/images/img_readme/14.png)
-
-#### 4.2 Get User's Orders
-```
-Method: GET
-URL: http://localhost:3000/api/orders
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/15.png)
-
-#### 4.3 Get Order by ID
-```
-Method: GET
-URL: http://localhost:3000/orders/api/orders/ORDER_ID_HERE
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/16.png)
-
-#### 4.4 Get Order status
-```
-Method: PUT
-URL: http://localhost:3000/orders/api/orders/ORDER_ID_HERE/status
-Headers: Authorization: Bearer YOUR_JWT_TOKEN
-```
-![alt text](public/images/img_readme/17.png)
-
-### Bước 5: Error Testing Cases
-
-#### 5.1 Authentication Errors
-
-**Test 1: Login với sai password**
-```
-Method: POST
-URL: http://localhost:3003/auth/login
-Body: {
-  "username": "testuser",
-  "password": "wrongpass"
-}
-Expected: 401 Unauthorized
+```powershell
+curl http://localhost:3003/health  # API Gateway
+curl http://localhost:3000/health  # Auth
+curl http://localhost:3001/health  # Product
+curl http://localhost:3002/health  # Order
 ```
 
-**Test 2: Access protected endpoint không có token**
-```
-Method: GET
-URL: http://localhost:3003/auth/dashboard
-Headers: (không có Authorization)
-Expected: 401 Unauthorized
-```
+Notes:
+- If running local (not Docker), make sure your `.env` files point to `localhost` Mongo/Rabbit or to your running services.
 
-**Test 3: Access với invalid token**
-```
-Method: GET
-URL: http://localhost:3003/auth/dashboard
-Headers: Authorization: Bearer invalid_token_here
-Expected: 401 Unauthorized
-```
+---
 
-#### 5.2 Product Validation Errors
+## Docker: build & run (recommended)
 
-**Test 4: Create product thiếu required fields**
-```
-Method: POST
-URL: http://localhost:3003/products/api/products
-Headers: Authorization: Bearer YOUR_TOKEN
-Body: {
-  "name": "iPhone 15"
-  // thiếu price, description
-}
-Expected: 400 Bad Request
+1. Ensure Docker Desktop is running.
+
+2. From project root, build images from Dockerfiles (optional):
+
+```powershell
+docker-compose build --no-cache
 ```
 
-**Test 5: Create product với giá âm**
-```
-Method: POST
-URL: http://localhost:3003/products/api/products
-Headers: Authorization: Bearer YOUR_TOKEN
-Body: {
-  "name": "iPhone 15",
-  "price": -100,
-  "description": "Test"
-}
-Expected: 400 Bad Request
+3. Start system (detached):
+
+```powershell
+docker-compose up -d
 ```
 
-**Test 6: Get product với invalid ID**
-```
-Method: GET
-URL: http://localhost:3003/products/api/products/invalid_id
-Headers: Authorization: Bearer YOUR_TOKEN
-Expected: 404 Not Found
+4. Check status:
+
+```powershell
+docker-compose ps
 ```
 
-#### 5.3 Order Validation Errors
+5. View logs (real-time):
 
-**Test 7: Create order với items trống**
-```
-Method: POST
-URL: http://localhost:3003/orders/api/orders
-Headers: Authorization: Bearer YOUR_TOKEN
-Body: {
-  "items": [],
-  "totalAmount": 1998,
-  "shippingAddress": "123 Nguyen Trai"
-}
-Expected: 400 Bad Request
+```powershell
+docker-compose logs -f
+docker-compose logs -f api-gateway
 ```
 
-**Test 8: Create order thiếu totalAmount**
-```
-Method: POST
-URL: http://localhost:3003/orders/api/orders
-Headers: Authorization: Bearer YOUR_TOKEN
-Body: {
-  "items": [{
-    "productId": "68ee122b9c25f66ce6196811",
-    "quantity": 2,
-    "price": 999
-  }],
-  "shippingAddress": "123 Nguyen Trai"
-}
-Expected: 400 Bad Request
+6. Stop and remove containers (optionally remove volumes):
+
+```powershell
+docker-compose down
+docker-compose down -v   # remove volumes (DB data)
 ```
 
-**Test 9: Create order với productId không tồn tại**
+Notes:
+- Docker Compose config uses container names for internal networking (e.g. `auth`, `product`, `order`). API Gateway is configured to proxy to these container names when running in Docker.
+
+---
+
+## Environment variables
+
+Each service can have its own `.env` file (see service folders). Important ones:
+
+- Auth: JWT_SECRET, MONGODB_AUTH_URI
+- Product: MONGODB_PRODUCT_URI, RABBITMQ_URI
+- Order: MONGODB_ORDER_URI, RABBITMQ_URI
+- API Gateway: API_GATEWAY_PORT
+
+When running Docker Compose the compose file sets appropriate envs for services (Mongo and RabbitMQ urls point to container names).
+
+---
+
+## Postman — Test plan (logic names only)
+
+Below are the test flows / logic you should run in Postman. (Bạn sẽ dán ảnh vào README từng bước sau.)
+
+1) Health checks
+- GET /health on API Gateway and each service
+
+2) Auth flows
+- Register new user
+- Login & obtain JWT token
+- Verify token & access protected endpoint
+
+3) Product flows
+- Create product (requires JWT)
+- Get all products
+- Get product by ID
+- Update product
+- Delete product
+- Buy products (POST /products/buy) — sends message to RabbitMQ and waits for order completion
+
+4) Order flows
+- Create order (direct)
+- Get user's orders
+- Get order by ID
+- Update order status (admin flow)
+
+5) Error / edge cases
+- Login with wrong password (expect 401)
+- Access protected route without token (expect 401)
+- Create product with invalid data (expect 400)
+- Create order with empty items (expect 400)
+- Service down scenario (expect 502 via API Gateway)
+
+6) Security tests
+- Expired JWT, malformed JWT
+- SQL / NoSQL injection attempts
+- Very large payloads
+
+For each test item you can add a screenshot and paste it in `public/images/img_readme/` then reference it in README if desired.
+
+---
+
+## Useful Docker commands (cheat sheet)
+
+```powershell
+# Start (detached)
+docker-compose up -d
+
+# Stop and remove containers
+docker-compose down
+
+# Build images
+docker-compose build
+
+# Tail logs
+docker-compose logs -f api-gateway
+
+# List running containers
+docker ps
+
+# Enter a running container
+docker-compose exec api-gateway sh
 ```
-Method: POST
-URL: http://localhost:3003/orders/api/orders
-Headers: Authorization: Bearer YOUR_TOKEN
-Body: {
-  "items": [{
-    "productId": "nonexistent_product_id",
-    "quantity": 2,
-    "price": 999
-  }],
-  "totalAmount": 1998,
-  "shippingAddress": "123 Nguyen Trai"
-}
-Expected: Có thể 400 hoặc order tạo thành công (tùy business logic)
-```
 
-**Test 10: Get order của user khác**
-```
-Method: GET
-URL: http://localhost:3003/orders/api/orders/OTHER_USER_ORDER_ID
-Headers: Authorization: Bearer YOUR_TOKEN
-Expected: 403 Forbidden
-```
+---
 
-#### 5.4 System Errors
+## Troubleshooting
 
-**Test 11: API Gateway khi service down**
-- Stop product service: `npm run stop:product`
-- Test: `GET http://localhost:3003/products/api/products`
-- Expected: 502 Bad Gateway hoặc timeout
+- If API Gateway returns ENOTFOUND for service host, check whether you're running in Docker (container names) vs local (localhost). Use container names when running with Docker Compose.
+- If RabbitMQ connection fails, ensure RabbitMQ container is up: `docker-compose ps` and `http://localhost:15672`.
+- For DB issues, check Mongo logs and connection strings in service env files.
 
-**Test 12: Database connection errors**
-- Stop MongoDB
-- Test any API that requires database
-- Expected: 500 Internal Server Error
+---
 
-**Test 13: Invalid JSON format**
-```
-Method: POST
-URL: http://localhost:3003/products/api/products
-Headers: 
-  - Authorization: Bearer YOUR_TOKEN
-  - Content-Type: application/json
-Body: { invalid json format here
-Expected: 400 Bad Request
-```
-
-#### 5.5 Rate Limiting / Security Tests
-
-**Test 14: Very large request body**
-```
-Method: POST  
-URL: http://localhost:3003/products/api/products
-Body: (very large JSON > 1MB)
-Expected: 413 Payload Too Large
-```
-
-**Test 15: SQL Injection attempts**
-```
-Method: GET
-URL: http://localhost:3000/products/api/products/'; DROP TABLE products; --
-Expected: 400 Bad Request hoặc safe handling
-```
-
-### Error Response Format Expectations
-
-Tất cả error responses nên có format:
-```json
-{
-  "error": "Error message description",
-  "code": "ERROR_CODE", 
-  "timestamp": "2025-10-14T10:30:00Z"
-}
-```
-
-### Testing Flow Recommendations
-
-1. **Start Services**: Chạy `npm run dev` hoặc `npm run docker:up`
-2. **Health Check**: Test tất cả `/health` endpoints
-3. **Register**: Tạo user account mới
-4. **Login**: Lấy JWT token từ response
-5. **Test Auth**: Verify token với `/dashboard` và `/verify`
-6. **Create Products**: Tạo một vài products để test
-7. **Manage Products**: Test CRUD operations
-8. **Create Orders**: Test order creation với existing products
-9. **View Orders**: Test order retrieval
-10. **Error Testing**: Test tất cả các error cases above
-11. **Edge Cases**: Test với data limits, special characters
-12. **Security**: Test unauthorized access, injection attempts
-
-
-### Expected HTTP Status Codes
-
-- **200 OK**: Successful GET, PUT requests
-- **201 Created**: Successful POST (create)
-- **400 Bad Request**: Validation errors, malformed JSON
-- **401 Unauthorized**: Missing/invalid authentication
-- **403 Forbidden**: Valid auth but no permission
-- **404 Not Found**: Resource doesn't exist
-- **500 Internal Server Error**: Server/database issues
-- **502 Bad Gateway**: Service unavailable (via API Gateway)
-
-### Security Testing Checklist
-
-- [ ] Test without Authorization header
-- [ ] Test with expired JWT token
-- [ ] Test with malformed JWT token
-- [ ] Test accessing other users' data
-- [ ] Test with very large payloads
-- [ ] Test with special characters in input
-- [ ] Test with SQL injection attempts
-- [ ] Test with XSS payloads
-- [ ] Test rate limiting (if implemented)
-- [ ] Test CORS headers properly set
-
-### Common Issues & Solutions
-
-- **401 Unauthorized**: Kiểm tra JWT token trong Authorization header
-- **404 Not Found**: Đảm bảo đúng URL path `/api/products` cho product service
-- **500 Internal Error**: Check MongoDB connection và service logs
-- **CORS Errors**: Tất cả services đã config CORS headers
-
-## Project Structure
+## Project structure (short)
 
 ```
 EProject-Phase-1/
-├── api-gateway/          # API Gateway service
-├── auth/                 # Authentication service
-├── product/              # Product management service
-├── order/                # Order processing service
-├── public/               # Static assets
-├── docker-compose.yml    # Docker configuration
-└── package.json          # Root configuration
+├── api-gateway/
+├── auth/
+├── product/
+├── order/
+├── public/
+├── docker-compose.yml
+└── package.json
 ```
 
-## Docker Support
+---
 
-Full Docker support với MongoDB và RabbitMQ:
+If you want, I can now:
+- Add the placeholder headings in README for where to drop your Postman screenshots, or
+- Generate a ready-to-run PowerShell script that builds, starts and runs health checks.
 
-```bash
-npm run docker:up      # Start tất cả services
-npm run docker:logs    # View logs
-npm run docker:down    # Stop tất cả services
-```
+Chọn 1 việc trong 2 để tôi tiếp tục (hoặc cả hai).

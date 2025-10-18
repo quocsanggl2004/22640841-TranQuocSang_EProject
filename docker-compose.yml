@@ -37,31 +37,31 @@ services:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
-    container_name: eproject-api-gateway
+    container_name: api-gateway
     restart: unless-stopped
     ports:
       - "3003:3003"
     environment:
       - API_GATEWAY_PORT=3003
     depends_on:
-      - auth-service
-      - product-service
-      - order-service
+      - auth
+      - product
+      - order
     networks:
       - eproject-network
 
   # Auth Service
-  auth-service:
+  auth:
     build:
       context: ./auth
       dockerfile: Dockerfile
-    container_name: eproject-auth-service
+    container_name: auth
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - AUTH_SERVICE_PORT=3000
-      - MONGODB_AUTH_URI=mongodb://mongodb:27017/auth_db
+      - MONGODB_AUTH_URI=mongodb://admin:password@mongodb:27017/auth_db?authSource=admin
       - JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
     depends_on:
       - mongodb
@@ -69,17 +69,17 @@ services:
       - eproject-network
 
   # Product Service
-  product-service:
+  product:
     build:
       context: ./product
       dockerfile: Dockerfile
-    container_name: eproject-product-service
+    container_name: product
     restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
       - PRODUCT_SERVICE_PORT=3001
-      - MONGODB_PRODUCT_URI=mongodb://mongodb:27017/product_db
+      - MONGODB_PRODUCT_URI=mongodb://admin:password@mongodb:27017/product_db?authSource=admin
       - RABBITMQ_URI=amqp://rabbitmq:5672
     depends_on:
       - mongodb
@@ -88,17 +88,17 @@ services:
       - eproject-network
 
   # Order Service
-  order-service:
+  order:
     build:
       context: ./order
       dockerfile: Dockerfile
-    container_name: eproject-order-service
+    container_name: order
     restart: unless-stopped
     ports:
       - "3002:3002"
     environment:
       - ORDER_SERVICE_PORT=3002
-      - MONGODB_ORDER_URI=mongodb://mongodb:27017/order_db
+      - MONGODB_ORDER_URI=mongodb://admin:password@mongodb:27017/order_db?authSource=admin
       - RABBITMQ_URI=amqp://rabbitmq:5672
     depends_on:
       - mongodb
