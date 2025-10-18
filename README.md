@@ -1,221 +1,368 @@
-# EProject Microservices
+# 🚀 HƯỚNG DẪN SETUP CI/CD VỚI GITHUB ACTIONS
 
-Một hướng dẫn ngắn gọn để khởi tạo, build, containerize và test dự án microservices (Node.js + Express + MongoDB + RabbitMQ). README này để bạn có thể nhanh chóng chạy hệ thống local hoặc bằng Docker và test các logic API bằng Postman.
+## 📋 MỤC TIÊU BƯỚC 9 & 10
 
----
-
-## Tổng quan (Overview)
-
-- API Gateway (port 3003) — entry point cho tất cả request
-- Auth service (port 3000) — đăng ký, đăng nhập, verify token
-- Product service (port 3001) — CRUD sản phẩm, endpoint buy
-- Order service (port 3002) — tạo/quản lý đơn hàng
-
-Services communicate qua RabbitMQ (amqp) và MongoDB.
+- **Bước 9:** Thao tác với GitHub Actions - CI/CD tự động
+- **Bước 10:** CI/CD liên kết với Docker (build & push images)
 
 ---
 
-## Quick reference — URLs
+## ✅ ĐÃ HOÀN THÀNH
 
-- API Gateway (recommended): http://localhost:3003
-- Auth (direct): http://localhost:3000
-- Product (direct): http://localhost:3001
-- Order (direct): http://localhost:3002
-- RabbitMQ management UI: http://localhost:15672 (user: admin / pass: password)
-- MongoDB (default): mongodb://localhost:27017
+File `.github/workflows/ci-cd.yml` đã được tạo sẵn với 3 jobs:
 
-> Khi chạy bằng Docker Compose, containers resolve nhau bằng container name (ví dụ `http://auth:3000`). Khi chạy local (not in Docker), dùng `localhost`.
+1. **Test Job** - Chạy integration tests cho auth và product service
+2. **Build & Push Job** - Build và push Docker images lên Docker Hub
+3. **Notify Job** - Thông báo kết quả build
 
 ---
 
-## Prerequisites
+## 🔧 CÁCH SETUP (5 BƯỚC)
 
-- Node.js 18+
-- Docker Desktop (nếu chạy bằng Docker) hoặc MongoDB + RabbitMQ local
-- Git
+### **BƯỚC 1: Tạo Tài Khoản Docker Hub**
 
----
+1. Truy cập: https://hub.docker.com/
+2. Đăng ký tài khoản miễn phí
+3. Ghi nhớ **username** (ví dụ: `quocsanggl2004`)
 
-## Quick local setup (without Docker)
+### **BƯỚC 2: Tạo Access Token Docker Hub**
 
-1. Clone repo
+1. Đăng nhập Docker Hub
+2. Click vào **Account Settings** (góc phải trên)
+3. Chọn **Security** → **New Access Token**
+4. Token name: `github-actions`
+5. Permissions: **Read, Write, Delete**
+6. Click **Generate** → **Copy token** (chỉ hiện 1 lần duy nhất!)
+
+### **BƯỚC 3: Thêm Secrets vào GitHub Repository**
+
+1. Vào repository GitHub của bạn
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Thêm các secrets sau:
+
+| Secret Name | Value | Ví dụ |
+|-------------|-------|-------|
+| `DOCKER_USERNAME` | Docker Hub username | `quocsanggl2004` |
+| `DOCKER_PASSWORD` | Access token vừa tạo | `dckr_pat_abc123...` |
+| `MONGODB_AUTH_URI` | MongoDB URI cho auth | `mongodb://admin:password@localhost:27017/auth_db?authSource=admin` |
+| `MONGODB_PRODUCT_URI` | MongoDB URI cho product | `mongodb://admin:password@localhost:27017/product_db?authSource=admin` |
+| `JWT_SECRET` | JWT secret key | `test_secret_key` |
+
+**Lưu ý:** Mỗi secret phải click **Add secret** riêng.
+
+### **BƯỚC 4: Push Code Lên GitHub**
 
 ```powershell
-git clone https://github.com/quocsanggl2004/22640841-TranQuocSang_EProject.git
-cd 22640841-TranQuocSang_EProject
+# Từ thư mục gốc dự án
+git add .
+git commit -m "Add CI/CD with GitHub Actions and Docker integration"
+git push origin master
 ```
 
-2. Install dependencies for each service (root package.json has helper scripts)
+### **BƯỚC 5: Xem Kết Quả**
 
-```powershell
-npm run install:all
+1. Vào GitHub repository
+2. Click tab **Actions**
+3. Bạn sẽ thấy workflow "CI/CD Pipeline" đang chạy
+4. Click vào workflow để xem chi tiết
+
+**Quy trình tự động:**
 ```
-
-3. Start services locally (dev) — runs services with nodemon (root has scripts)
-
-```powershell
-npm run dev
-```
-
-4. Verify health endpoints (open in browser or curl)
-
-```powershell
-curl http://localhost:3003/health  # API Gateway
-curl http://localhost:3000/health  # Auth
-curl http://localhost:3001/health  # Product
-curl http://localhost:3002/health  # Order
-```
-
-Notes:
-- If running local (not Docker), make sure your `.env` files point to `localhost` Mongo/Rabbit or to your running services.
-
----
-
-## Docker: build & run (recommended)
-
-1. Ensure Docker Desktop is running.
-
-2. From project root, build images from Dockerfiles (optional):
-
-```powershell
-docker-compose build --no-cache
-```
-
-3. Start system (detached):
-
-```powershell
-docker-compose up -d
-```
-
-4. Check status:
-
-```powershell
-docker-compose ps
-```
-
-5. View logs (real-time):
-
-```powershell
-docker-compose logs -f
-docker-compose logs -f api-gateway
-```
-
-6. Stop and remove containers (optionally remove volumes):
-
-```powershell
-docker-compose down
-docker-compose down -v   # remove volumes (DB data)
-```
-
-Notes:
-- Docker Compose config uses container names for internal networking (e.g. `auth`, `product`, `order`). API Gateway is configured to proxy to these container names when running in Docker.
-
----
-
-## Environment variables
-
-Each service can have its own `.env` file (see service folders). Important ones:
-
-- Auth: JWT_SECRET, MONGODB_AUTH_URI
-- Product: MONGODB_PRODUCT_URI, RABBITMQ_URI
-- Order: MONGODB_ORDER_URI, RABBITMQ_URI
-- API Gateway: API_GATEWAY_PORT
-
-When running Docker Compose the compose file sets appropriate envs for services (Mongo and RabbitMQ urls point to container names).
-
----
-
-## Postman — Test plan (logic names only)
-
-Below are the test flows / logic you should run in Postman. (Bạn sẽ dán ảnh vào README từng bước sau.)
-
-1) Health checks
-- GET /health on API Gateway and each service
-
-2) Auth flows
-- Register new user
-- Login & obtain JWT token
-- Verify token & access protected endpoint
-
-3) Product flows
-- Create product (requires JWT)
-- Get all products
-- Get product by ID
-- Update product
-- Delete product
-- Buy products (POST /products/buy) — sends message to RabbitMQ and waits for order completion
-
-4) Order flows
-- Create order (direct)
-- Get user's orders
-- Get order by ID
-- Update order status (admin flow)
-
-5) Error / edge cases
-- Login with wrong password (expect 401)
-- Access protected route without token (expect 401)
-- Create product with invalid data (expect 400)
-- Create order with empty items (expect 400)
-- Service down scenario (expect 502 via API Gateway)
-
-6) Security tests
-- Expired JWT, malformed JWT
-- SQL / NoSQL injection attempts
-- Very large payloads
-
-For each test item you can add a screenshot and paste it in `public/images/img_readme/` then reference it in README if desired.
-
----
-
-## Useful Docker commands (cheat sheet)
-
-```powershell
-# Start (detached)
-docker-compose up -d
-
-# Stop and remove containers
-docker-compose down
-
-# Build images
-docker-compose build
-
-# Tail logs
-docker-compose logs -f api-gateway
-
-# List running containers
-docker ps
-
-# Enter a running container
-docker-compose exec api-gateway sh
+Push code → GitHub Actions trigger
+         ↓
+    Run tests (auth, product)
+         ↓
+    Build Docker images (4 services)
+         ↓
+    Push images to Docker Hub
+         ↓
+    Send notification
 ```
 
 ---
 
-## Troubleshooting
+## 📊 WORKFLOW CHI TIẾT
 
-- If API Gateway returns ENOTFOUND for service host, check whether you're running in Docker (container names) vs local (localhost). Use container names when running with Docker Compose.
-- If RabbitMQ connection fails, ensure RabbitMQ container is up: `docker-compose ps` and `http://localhost:15672`.
-- For DB issues, check Mongo logs and connection strings in service env files.
+### **Job 1: Test (Matrix Strategy)**
+
+Chạy song song tests cho 2 services:
+
+```yaml
+strategy:
+  matrix:
+    service: [auth, product]
+```
+
+**Các bước:**
+1. Checkout code từ repository
+2. Setup Node.js 18
+3. Install dependencies cho từng service
+4. Run `npm test` với environment variables từ Secrets
+
+**Thời gian:** ~2-3 phút
+
+### **Job 2: Build and Push Docker Images**
+
+Chạy **SAU** khi tests pass, build 4 services:
+
+```yaml
+strategy:
+  matrix:
+    service: [auth, product, order, api-gateway]
+```
+
+**Các bước:**
+1. Checkout code
+2. Setup Docker Buildx (hỗ trợ multi-platform builds)
+3. Login Docker Hub với credentials từ Secrets
+4. Build và push images với 2 tags:
+   - `latest` - Tag mới nhất
+   - `<commit-sha>` - Tag theo commit cụ thể (rollback dễ dàng)
+
+**Docker images được push:**
+```
+quocsanggl2004/eproject-auth:latest
+quocsanggl2004/eproject-auth:abc123def456
+quocsanggl2004/eproject-product:latest
+quocsanggl2004/eproject-product:abc123def456
+quocsanggl2004/eproject-order:latest
+quocsanggl2004/eproject-order:abc123def456
+quocsanggl2004/eproject-api-gateway:latest
+quocsanggl2004/eproject-api-gateway:abc123def456
+```
+
+**Thời gian:** ~5-7 phút (4 images song song)
+
+### **Job 3: Notify**
+
+Chạy **SAU** build job (dù success hay fail):
+
+```yaml
+needs: build-and-push
+if: always()
+```
+
+In ra console:
+- Build status (success/failure)
+- Commit SHA
+- User trigger workflow
 
 ---
 
-## Project structure (short)
+## 🎯 KIỂM TRA HOẠT ĐỘNG
 
-```
-EProject-Phase-1/
-├── api-gateway/
-├── auth/
-├── product/
-├── order/
-├── public/
-├── docker-compose.yml
-└── package.json
+### **1. Kiểm tra trên GitHub Actions**
+
+**Truy cập:** `https://github.com/<username>/<repo>/actions`
+
+**Kết quả mong đợi:**
+- ✅ Test job: Green checkmark
+- ✅ Build-and-push job: Green checkmark  
+- ✅ Notify job: Green checkmark
+
+**Xem logs chi tiết:**
+- Click vào workflow run
+- Click vào từng job để xem steps
+- Mở rộng step để xem logs
+
+### **2. Kiểm tra trên Docker Hub**
+
+**Truy cập:** `https://hub.docker.com/u/<username>`
+
+**Kết quả mong đợi:**
+- Thấy 4 repositories mới:
+  - `eproject-auth`
+  - `eproject-product`
+  - `eproject-order`
+  - `eproject-api-gateway`
+
+**Kiểm tra tags:**
+- Click vào repository
+- Tab **Tags** → Thấy `latest` và `<commit-sha>`
+
+### **3. Pull Images Về Local**
+
+```powershell
+# Pull image mới nhất
+docker pull quocsanggl2004/eproject-auth:latest
+
+# Kiểm tra images
+docker images | findstr eproject
 ```
 
 ---
 
-If you want, I can now:
-- Add the placeholder headings in README for where to drop your Postman screenshots, or
-- Generate a ready-to-run PowerShell script that builds, starts and runs health checks.
+## 📸 CHỨNG MINH TRONG BÀI TRÌNH BÀY
 
-Chọn 1 việc trong 2 để tôi tiếp tục (hoặc cả hai).
+### **Bước 9: GitHub Actions (0.5 điểm)**
+
+**Cần chứng minh:**
+
+1. **Workflow đã chạy thành công:**
+   - Mở tab Actions trên GitHub
+   - Chỉ workflow run với checkmark xanh
+   - Mở logs của test job
+
+2. **Tự động trigger khi push:**
+   - Sửa file README.md (thêm 1 dòng bất kỳ)
+   - `git add . && git commit -m "Test CI/CD" && git push`
+   - Refresh tab Actions → Thấy workflow mới chạy
+
+3. **Tests chạy tự động:**
+   - Click vào test job
+   - Mở step "Run tests - auth"
+   - Chỉ output: `5 passing`
+   - Mở step "Run tests - product"  
+   - Chỉ output: `2 passing`
+
+### **Bước 10: CI/CD + Docker (0.5 điểm)**
+
+**Cần chứng minh:**
+
+1. **Docker images được build:**
+   - Click vào build-and-push job
+   - Mở step "Build and push Docker image - auth"
+   - Chỉ output: `pushing manifest for docker.io/...`
+
+2. **Images trên Docker Hub:**
+   - Mở Docker Hub trong browser
+   - Chỉ 4 repositories với tag `latest`
+   - Click vào 1 repo → Chỉ tab Tags → 2 tags
+
+3. **Pull và chạy image từ Docker Hub:**
+   ```powershell
+   # Pull image
+   docker pull quocsanggl2004/eproject-auth:latest
+   
+   # Verify image
+   docker images quocsanggl2004/eproject-auth
+   
+   # Run container (nếu cần demo)
+   docker run -d -p 3000:3000 --name test-auth quocsanggl2004/eproject-auth:latest
+   ```
+
+---
+
+## 🔍 WORKFLOW FILE GIẢI THÍCH
+
+### **Trigger Events**
+
+```yaml
+on:
+  push:
+    branches: [ master, main ]  # Chạy khi push lên master/main
+  pull_request:
+    branches: [ master, main ]  # Chạy khi tạo PR vào master/main
+```
+
+### **Matrix Strategy**
+
+Chạy song song nhiều jobs thay vì tuần tự:
+
+```yaml
+strategy:
+  matrix:
+    service: [auth, product, order, api-gateway]
+# → Tạo 4 jobs song song thay vì 4 jobs tuần tự (tiết kiệm thời gian)
+```
+
+### **Job Dependencies**
+
+```yaml
+needs: test  # Build job chỉ chạy SAU khi test job thành công
+if: github.event_name == 'push'  # Chỉ chạy với push, không chạy với PR
+```
+
+### **Secrets Usage**
+
+```yaml
+username: ${{ secrets.DOCKER_USERNAME }}  # Lấy từ GitHub Secrets
+password: ${{ secrets.DOCKER_PASSWORD }}  # Không bao giờ log ra console
+```
+
+### **Docker Tags**
+
+```yaml
+tags: |
+  ${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:latest
+  ${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:${{ github.sha }}
+```
+
+**Ví dụ với commit `abc123def456`:**
+- `quocsanggl2004/eproject-auth:latest`
+- `quocsanggl2004/eproject-auth:abc123def456`
+
+**Lợi ích:**
+- `latest` - Dễ pull image mới nhất
+- `<commit-sha>` - Rollback về version cũ nếu cần
+
+---
+
+## 🛠️ TROUBLESHOOTING
+
+### **Lỗi: Authentication failed (Docker Hub)**
+
+**Nguyên nhân:** Sai username hoặc password
+
+**Giải pháp:**
+1. Kiểm tra `DOCKER_USERNAME` trong Secrets (không có khoảng trắng)
+2. Tạo lại Access Token từ Docker Hub
+3. Update `DOCKER_PASSWORD` secret
+
+### **Lỗi: Tests failed**
+
+**Nguyên nhân:** MongoDB URI không đúng hoặc thiếu secrets
+
+**Giải pháp:**
+1. Kiểm tra các secrets: `MONGODB_AUTH_URI`, `MONGODB_PRODUCT_URI`, `JWT_SECRET`
+2. Chạy test local trước: `npm test`
+3. Xem logs chi tiết trong GitHub Actions
+
+### **Lỗi: Docker build failed**
+
+**Nguyên nhân:** Dockerfile có vấn đề hoặc thiếu dependencies
+
+**Giải pháp:**
+1. Build local trước: `docker build -t test-image ./auth`
+2. Kiểm tra Dockerfile syntax
+3. Xem logs build trong GitHub Actions
+
+### **Lỗi: Workflow không trigger**
+
+**Nguyên nhân:** File `.github/workflows/ci-cd.yml` không đúng vị trí
+
+**Giải pháo:**
+1. Đảm bảo file ở đúng path: `.github/workflows/ci-cd.yml`
+2. Push file lên GitHub
+3. Kiểm tra tab Actions có workflow không
+
+---
+
+## 📚 TÀI LIỆU THAM KHẢO
+
+- GitHub Actions Documentation: https://docs.github.com/en/actions
+- Docker Hub: https://hub.docker.com/
+- GitHub Actions Marketplace: https://github.com/marketplace?type=actions
+
+---
+
+## 📌 CHECKLIST HOÀN THÀNH
+
+- [ ] Tạo tài khoản Docker Hub
+- [ ] Tạo Access Token Docker Hub
+- [ ] Thêm 5 secrets vào GitHub repository
+- [ ] Push code với file `.github/workflows/ci-cd.yml`
+- [ ] Workflow chạy thành công trên GitHub Actions
+- [ ] 4 Docker images được push lên Docker Hub
+- [ ] Pull được images từ Docker Hub về local
+- [ ] Chuẩn bị demo: Mở sẵn tab GitHub Actions và Docker Hub
+
+---
+
+**TỔNG ĐIỂM BƯỚC 9 + 10: 1.0 điểm**
+
+- ✅ GitHub Actions hoạt động: **0.5 điểm**
+- ✅ CI/CD + Docker Hub: **0.5 điểm**
+
+Good luck! 🚀
