@@ -54,7 +54,7 @@ class App {
     // API routes with /api/orders prefix
     this.app.get("/api/orders", isAuthenticated, async (req, res) => {
       try {
-        const orders = await Order.find({ userId: req.user.id });
+        const orders = await Order.find({});
         res.json(orders);
       } catch (error) {
         res.status(500).json({ error: error.message });
@@ -69,11 +69,6 @@ class App {
           return res.status(404).json({ error: "Order not found" });
         }
         
-        // Check if order belongs to user
-        if (order.userId.toString() !== req.user.id) {
-          return res.status(403).json({ error: "Access denied" });
-        }
-        
         res.json(order);
       } catch (error) {
         res.status(500).json({ error: error.message });
@@ -83,23 +78,20 @@ class App {
     // Create order with proper structure
     this.app.post("/api/orders", isAuthenticated, async (req, res) => {
       try {
-        const { items, totalAmount, shippingAddress } = req.body;
+        const { products, totalPrice } = req.body;
         
         // Validate required fields
-        if (!items || !Array.isArray(items) || items.length === 0) {
-          return res.status(400).json({ error: "Items are required" });
+        if (!products || !Array.isArray(products) || products.length === 0) {
+          return res.status(400).json({ error: "Products are required" });
         }
         
-        if (!totalAmount || totalAmount <= 0) {
-          return res.status(400).json({ error: "Valid total amount is required" });
+        if (!totalPrice || totalPrice <= 0) {
+          return res.status(400).json({ error: "Valid total price is required" });
         }
         
         const newOrder = new Order({
-          userId: req.user.id,
-          items: items,
-          totalAmount: totalAmount,
-          shippingAddress: shippingAddress || "",
-          status: "pending",
+          products: products,
+          totalPrice: totalPrice,
           createdAt: new Date()
         });
         
@@ -115,23 +107,22 @@ class App {
       }
     });
 
-    // Update order status
-    this.app.put("/api/orders/:id/status", isAuthenticated, async (req, res) => {
+    // Update order
+    this.app.put("/api/orders/:id", isAuthenticated, async (req, res) => {
       try {
-        const { status } = req.body;
         const order = await Order.findById(req.params.id);
         
         if (!order) {
           return res.status(404).json({ error: "Order not found" });
         }
         
-        order.status = status;
+        // Can update other fields if needed
         await order.save();
         
         res.json({ 
           success: true, 
           order: order,
-          message: "Order status updated successfully" 
+          message: "Order updated successfully" 
         });
       } catch (error) {
         res.status(500).json({ error: error.message });
@@ -156,8 +147,7 @@ class App {
           const { products, username, orderId } = JSON.parse(data.content);
   
           const newOrder = new Order({
-            products,
-            user: username,
+            products: products.map(p => p._id),
             totalPrice: products.reduce((acc, product) => acc + product.price, 0),
           });
   
@@ -170,10 +160,10 @@ class App {
   
           // Send fulfilled order to PRODUCTS service
           // Include orderId in the message
-          const { user, products: savedProducts, totalPrice } = newOrder.toJSON();
+          const { products: savedProducts, totalPrice } = newOrder.toJSON();
           channel.sendToQueue(
             "products",
-            Buffer.from(JSON.stringify({ orderId, user, products: savedProducts, totalPrice }))
+            Buffer.from(JSON.stringify({ orderId, user: username, products: savedProducts, totalPrice }))
           );
         });
       } catch (err) {

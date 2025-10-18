@@ -64,13 +64,6 @@ class App {
     const port = config.port || 3002;
     this.server = this.app.listen(port, () => {
       console.log(`Product service started on port ${port}`);
-      console.log(`Available endpoints:`);
-      console.log(`- GET http://localhost:${port}/health`);
-      console.log(`- GET http://localhost:${port}/api/products`);
-      console.log(`- POST http://localhost:${port}/api/products`);
-      console.log(`- GET http://localhost:${port}/api/products/:id`);
-      console.log(`- PUT http://localhost:${port}/api/products/:id`);
-      console.log(`- DELETE http://localhost:${port}/api/products/:id`);
     });
   }
 

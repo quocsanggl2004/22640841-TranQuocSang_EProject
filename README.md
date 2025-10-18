@@ -1,368 +1,577 @@
-# 🚀 HƯỚNG DẪN SETUP CI/CD VỚI GITHUB ACTIONS
+# EProject Phase 1 - Microservices E-Commerce
 
-## 📋 MỤC TIÊU BƯỚC 9 & 10
-
-- **Bước 9:** Thao tác với GitHub Actions - CI/CD tự động
-- **Bước 10:** CI/CD liên kết với Docker (build & push images)
+Dự án xây dựng hệ thống thương mại điện tử theo kiến trúc microservices với Docker và CI/CD.
 
 ---
 
-## ✅ ĐÃ HOÀN THÀNH
+## 📖 Tổng Quan Dự Án
 
-File `.github/workflows/ci-cd.yml` đã được tạo sẵn với 3 jobs:
+### Hệ thống giải quyết vấn đề gì?
+Xây dựng một nền tảng e-commerce đơn giản với các chức năng:
+- Đăng ký và đăng nhập người dùng
+- Quản lý sản phẩm (thêm, xem, sửa, xóa)
+- Đặt hàng sản phẩm
+- Thông báo đơn hàng qua message queue
 
-1. **Test Job** - Chạy integration tests cho auth và product service
-2. **Build & Push Job** - Build và push Docker images lên Docker Hub
-3. **Notify Job** - Thông báo kết quả build
+### Công nghệ sử dụng
+- **Backend:** Node.js + Express.js
+- **Database:** MongoDB
+- **Message Queue:** RabbitMQ
+- **Containerization:** Docker + Docker Compose
+- **CI/CD:** GitHub Actions
+- **API Testing:** Postman
 
 ---
 
-## 🔧 CÁCH SETUP (5 BƯỚC)
+## 🏗️ Kiến Trúc Hệ Thống
 
-### **BƯỚC 1: Tạo Tài Khoản Docker Hub**
-
-1. Truy cập: https://hub.docker.com/
-2. Đăng ký tài khoản miễn phí
-3. Ghi nhớ **username** (ví dụ: `quocsanggl2004`)
-
-### **BƯỚC 2: Tạo Access Token Docker Hub**
-
-1. Đăng nhập Docker Hub
-2. Click vào **Account Settings** (góc phải trên)
-3. Chọn **Security** → **New Access Token**
-4. Token name: `github-actions`
-5. Permissions: **Read, Write, Delete**
-6. Click **Generate** → **Copy token** (chỉ hiện 1 lần duy nhất!)
-
-### **BƯỚC 3: Thêm Secrets vào GitHub Repository**
-
-1. Vào repository GitHub của bạn
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Thêm các secrets sau:
-
-| Secret Name | Value | Ví dụ |
-|-------------|-------|-------|
-| `DOCKER_USERNAME` | Docker Hub username | `quocsanggl2004` |
-| `DOCKER_PASSWORD` | Access token vừa tạo | `dckr_pat_abc123...` |
-| `MONGODB_AUTH_URI` | MongoDB URI cho auth | `mongodb://admin:password@localhost:27017/auth_db?authSource=admin` |
-| `MONGODB_PRODUCT_URI` | MongoDB URI cho product | `mongodb://admin:password@localhost:27017/product_db?authSource=admin` |
-| `JWT_SECRET` | JWT secret key | `test_secret_key` |
-
-**Lưu ý:** Mỗi secret phải click **Add secret** riêng.
-
-### **BƯỚC 4: Push Code Lên GitHub**
-
-```powershell
-# Từ thư mục gốc dự án
-git add .
-git commit -m "Add CI/CD with GitHub Actions and Docker integration"
-git push origin master
+```
+                    ┌─────────────┐
+                    │   Client    │
+                    │  (Postman)  │
+                    └──────┬──────┘
+                           │
+                           ▼
+                  ┌────────────────┐
+                  │  API Gateway   │  Port 3003
+                  │   (Routing)    │
+                  └────────┬───────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+   ┌────────┐        ┌──────────┐       ┌────────┐
+   │  Auth  │        │ Product  │       │ Order  │
+   │ :3000  │        │  :3001   │       │ :3002  │
+   └────┬───┘        └────┬─────┘       └────┬───┘
+        │                 │                   │
+        └─────────┬───────┴─────────┬─────────┘
+                  ▼                 ▼
+           ┌──────────┐      ┌──────────┐
+           │ MongoDB  │      │ RabbitMQ │
+           │  :27017  │      │  :5672   │
+           └──────────┘      └──────────┘
 ```
 
-### **BƯỚC 5: Xem Kết Quả**
+### Các Services
 
+| Service | Port | Chức năng |
+|---------|------|-----------|
+| **API Gateway** | 3003 | Nhận requests từ client và route đến service tương ứng |
+| **Auth Service** | 3000 | Xử lý đăng ký, đăng nhập, tạo JWT token |
+| **Product Service** | 3001 | Quản lý sản phẩm (CRUD) |
+| **Order Service** | 3002 | Quản lý đơn hàng, gửi thông báo qua RabbitMQ |
+| **MongoDB** | 27017 | Lưu trữ dữ liệu (users, products, orders) |
+| **RabbitMQ** | 5672, 15672 | Message queue cho communication giữa services |
+
+### Cách các services giao tiếp
+1. **Client → API Gateway:** HTTP requests
+2. **API Gateway → Services:** Routing requests đến đúng service
+3. **Services → MongoDB:** Lưu/đọc dữ liệu
+4. **Order Service → RabbitMQ:** Gửi thông báo khi có đơn hàng mới
+5. **Services ↔ Services:** JWT token để authenticate
+
+---
+
+## 🚀 Hướng Dẫn Chạy Dự Án
+
+### Yêu cầu
+- Docker Desktop đã cài đặt và đang chạy
+- Git đã cài đặt
+
+### Bước 1: Clone dự án
+```bash
+git clone https://github.com/quocsanggl2004/22640841-TranQuocSang_EProject.git
+cd EProject-Phase-1
+```
+
+### Bước 2: Chạy Docker Compose
+```bash
+docker-compose up -d
+```
+
+Lệnh này sẽ:
+- Tải images (MongoDB, RabbitMQ)
+- Build 4 services (API Gateway, Auth, Product, Order)
+- Khởi động tất cả containers
+
+### Bước 3: Kiểm tra services đã chạy
+```bash
+docker-compose ps
+```
+
+Kết quả mong đợi: 6 containers với status **Up (healthy)**
+
+### Bước 4: Kiểm tra health
+Mở browser và truy cập:
+- API Gateway: http://localhost:3003/health
+- Auth Service: http://localhost:3000/health
+- Product Service: http://localhost:3001/health
+- Order Service: http://localhost:3002/health
+
+Tất cả phải trả về JSON: `{ "status": "... is running" }`
+
+---
+
+## 📡 Test API với Postman
+
+### Lưu ý quan trọng
+- **Tất cả requests đi qua API Gateway:** `http://localhost:3003`
+- **Cần JWT token** cho các API: Products, Orders
+- Test theo đúng thứ tự dưới đây
+
+---
+### TEST 0: Kiểm tra trạng thái hoạt động các service
+-api_gateway: http://localhost:3003/health
+![alt text](public/images/1.png)
+
+-auth_service: http://localhost:3000/health
+![alt text](public/images/2.png)
+
+-product_service: http://localhost:3001/health
+![alt text](public/images/3.png)
+
+-order_service: http://localhost:3002/health
+![alt text](public/images/4.png)
+
+
+### TEST 1: Đăng ký tài khoản
+
+**Nghiệp vụ:** Tạo tài khoản người dùng mới trong hệ thống
+
+**Request:**
+```
+Method: POST
+URL: http://localhost:3003/auth/register
+Headers:
+  Content-Type: application/json
+Body (JSON):
+{
+  "username": "nguyenvana",
+  "password": "matkhau123"
+}
+```
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+
+![alt text](public/images/5.png)
+
+### TEST 2: Đăng nhập
+
+**Nghiệp vụ:** Đăng nhập với tài khoản đã tạo để lấy JWT token
+
+**Request:**
+```
+Method: POST
+URL: http://localhost:3003/auth/login
+Headers:
+  Content-Type: application/json
+Body (JSON):
+{
+  "username": "nguyenvana",
+  "password": "matkhau123"
+}
+```
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+
+**⚠️ Quan trọng:** Copy `token` để dùng cho các requests tiếp theo!
+
+![alt text](public/images/6.png)
+
+### TEST 3: Verify Token
+
+**Nghiệp vụ:** Kiểm tra token có hợp lệ không
+
+**Request:**
+```
+Method: GET
+URL: http://localhost:3003/auth/verify
+Headers:
+  Authorization: Bearer <PASTE_TOKEN_Ở_ĐÂY>
+```
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+
+![alt text](public/images/7.png)
+
+### TEST 4: Tạo sản phẩm mới
+
+**Nghiệp vụ:** Thêm sản phẩm vào hệ thống
+
+**Request:**
+```
+Method: POST
+URL: http://localhost:3003/products
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer <TOKEN>
+Body (JSON):
+{
+  "name": "Laptop Dell XPS 15",
+  "price": 25000000,
+  "description": "Laptop cao cấp cho dân văn phòng"
+}
+```
+
+**Kết quả mong đợi:**
+- Status: `201 Created`
+- Response:
+```json
+{
+  "_id": "64a7c9d0abc123456789",
+  "name": "Laptop Dell XPS 15",
+  "price": 25000000,
+  "description": "Laptop cao cấp cho dân văn phòng",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**⚠️ Quan trọng:** Copy `_id` của sản phẩm để dùng cho test tiếp theo!
+
+**📸 Chèn ảnh Postman ở đây:**
+![Create Product]()
+
+---
+
+### TEST 5: Xem danh sách sản phẩm
+
+**Nghiệp vụ:** Lấy tất cả sản phẩm trong hệ thống
+
+**Request:**
+```
+Method: GET
+URL: http://localhost:3003/products
+Headers:
+  Authorization: Bearer <TOKEN>
+```
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+- Response: Array các sản phẩm
+```json
+[
+  {
+    "_id": "64a7c9d0abc123456789",
+    "name": "Laptop Dell XPS 15",
+    "price": 25000000,
+    "description": "Laptop cao cấp cho dân văn phòng",
+    "createdAt": "2024-01-15T10:30:00.000Z"
+  },
+  {
+    "_id": "64a7c9d1def987654321",
+    "name": "iPhone 15 Pro Max",
+    "price": 30000000,
+    "description": "Điện thoại cao cấp",
+    "createdAt": "2024-01-15T11:00:00.000Z"
+  }
+]
+```
+
+**📸 Chèn ảnh Postman ở đây:**
+![Get All Products]()
+
+---
+
+### TEST 6: Xem chi tiết 1 sản phẩm
+
+**Nghiệp vụ:** Lấy thông tin chi tiết của một sản phẩm theo ID
+
+**Request:**
+```
+Method: GET
+URL: http://localhost:3003/products/64a7c9d0abc123456789
+Headers:
+  Authorization: Bearer <TOKEN>
+```
+
+**Lưu ý:** Thay `64a7c9d0abc123456789` bằng `_id` thật từ TEST 4
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+- Response:
+```json
+{
+  "_id": "64a7c9d0abc123456789",
+  "name": "Laptop Dell XPS 15",
+  "price": 25000000,
+  "description": "Laptop cao cấp cho dân văn phòng",
+  "createdAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**📸 Chèn ảnh Postman ở đây:**
+![Get Product By ID]()
+
+---
+
+### TEST 7: Tạo đơn hàng
+
+**Nghiệp vụ:** Đặt hàng sản phẩm, hệ thống sẽ gửi thông báo qua RabbitMQ
+
+**Request:**
+```
+Method: POST
+URL: http://localhost:3003/orders
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer <TOKEN>
+Body (JSON):
+{
+  "productId": "64a7c9d0abc123456789",
+  "quantity": 2
+}
+```
+
+**Lưu ý:** Thay `productId` bằng `_id` thật từ TEST 4
+
+**Kết quả mong đợi:**
+- Status: `201 Created`
+- Response:
+```json
+{
+  "_id": "64a7d0e1xyz789456123",
+  "userId": "507f1f77bcf86cd799439011",
+  "productId": "64a7c9d0abc123456789",
+  "quantity": 2,
+  "status": "pending",
+  "createdAt": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**📸 Chèn ảnh Postman ở đây:**
+![Create Order]()
+
+---
+
+### TEST 8: Kiểm tra RabbitMQ nhận message
+
+**Nghiệp vụ:** Verify rằng Order Service đã gửi message vào RabbitMQ khi tạo đơn hàng
+
+**Cách kiểm tra:**
+1. Mở browser
+2. Truy cập: http://localhost:15672
+3. Login với:
+   - Username: `guest`
+   - Password: `guest`
+4. Click tab **Queues**
+5. Click vào queue tên **ORDER**
+6. Xem phần **Messages** → Phải có ít nhất 1 message
+
+**Kết quả mong đợi:**
+- Queue `ORDER` tồn tại
+- Có messages trong queue
+- Message chứa thông tin đơn hàng (productId, quantity, userId)
+
+**📸 Chèn ảnh RabbitMQ Management UI ở đây:**
+![RabbitMQ Queue]()
+
+---
+
+### TEST 9: Xem danh sách đơn hàng
+
+**Nghiệp vụ:** Lấy tất cả đơn hàng của user hiện tại
+
+**Request:**
+```
+Method: GET
+URL: http://localhost:3003/orders
+Headers:
+  Authorization: Bearer <TOKEN>
+```
+
+**Kết quả mong đợi:**
+- Status: `200 OK`
+- Response: Array các đơn hàng của user
+```json
+[
+  {
+    "_id": "64a7d0e1xyz789456123",
+    "userId": "507f1f77bcf86cd799439011",
+    "productId": "64a7c9d0abc123456789",
+    "quantity": 2,
+    "status": "pending",
+    "createdAt": "2024-01-15T12:00:00.000Z"
+  }
+]
+```
+
+**📸 Chèn ảnh Postman ở đây:**
+![Get Orders]()
+
+---
+
+## 🔐 Xử Lý Lỗi Thường Gặp
+
+### Lỗi 401 Unauthorized
+**Nguyên nhân:** Thiếu hoặc sai JWT token
+
+**Giải pháp:**
+1. Đăng nhập lại để lấy token mới (TEST 2)
+2. Kiểm tra header `Authorization: Bearer <token>`
+3. Đảm bảo có dấu cách giữa `Bearer` và `<token>`
+
+### Lỗi 404 Not Found
+**Nguyên nhân:** ID không tồn tại hoặc sai URL
+
+**Giải pháp:**
+1. Kiểm tra lại `_id` từ response trước đó
+2. Đảm bảo URL đúng: `http://localhost:3003/...`
+
+### Lỗi 400 Bad Request
+**Nguyên nhân:** Dữ liệu gửi lên sai format hoặc thiếu field
+
+**Giải pháp:**
+1. Kiểm tra Body có đúng JSON format không
+2. Kiểm tra các field bắt buộc: `username`, `password`, `name`, `price`, etc.
+
+### Docker containers không start
+**Giải pháp:**
+```bash
+# Stop tất cả
+docker-compose down
+
+# Xóa volumes (reset database)
+docker-compose down -v
+
+# Start lại
+docker-compose up -d
+```
+
+---
+
+## 🧪 CI/CD với GitHub Actions
+
+### Workflow tự động
+Mỗi khi push code lên GitHub, hệ thống tự động:
+
+1. **Chạy Tests**
+   - Auth service: 5 tests
+   - Product service: 2 tests
+   - **Tổng: 7 tests**
+
+2. **Build Docker Images**
+   - Build 4 images: auth, product, order, api-gateway
+   - Tag với `latest` và `commit-sha`
+
+3. **Push lên Docker Hub**
+   - Repository: https://hub.docker.com/u/quocsanggl2004
+   - Images: `eproject-auth`, `eproject-product`, `eproject-order`, `eproject-api-gateway`
+
+### Xem kết quả CI/CD
 1. Vào GitHub repository
 2. Click tab **Actions**
-3. Bạn sẽ thấy workflow "CI/CD Pipeline" đang chạy
-4. Click vào workflow để xem chi tiết
+3. Xem workflow runs
 
-**Quy trình tự động:**
+**📸 Chèn ảnh GitHub Actions ở đây:**
+![GitHub Actions]()
+
+**📸 Chèn ảnh Docker Hub ở đây:**
+![Docker Hub]()
+
+---
+
+## 📂 Cấu Trúc Thư Mục
+
 ```
-Push code → GitHub Actions trigger
-         ↓
-    Run tests (auth, product)
-         ↓
-    Build Docker images (4 services)
-         ↓
-    Push images to Docker Hub
-         ↓
-    Send notification
+EProject-Phase-1/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml          # GitHub Actions workflow
+├── api-gateway/
+│   ├── Dockerfile
+│   ├── index.js
+│   └── package.json
+├── auth/
+│   ├── Dockerfile
+│   ├── index.js
+│   ├── package.json
+│   └── src/
+│       ├── app.js
+│       ├── controllers/
+│       ├── models/
+│       ├── services/
+│       └── test/
+├── product/
+│   ├── Dockerfile
+│   ├── index.js
+│   ├── package.json
+│   └── src/
+│       ├── app.js
+│       ├── controllers/
+│       ├── models/
+│       ├── routes/
+│       ├── services/
+│       └── test/
+├── order/
+│   ├── Dockerfile
+│   ├── index.js
+│   ├── package.json
+│   └── src/
+│       ├── app.js
+│       ├── models/
+│       └── utils/
+├── docker-compose.yml         # Docker orchestration
+├── README.md                  # File này
+
 ```
 
 ---
 
-## 📊 WORKFLOW CHI TIẾT
+## 🎓 Kiến Thức Đã Áp Dụng
 
-### **Job 1: Test (Matrix Strategy)**
+### 1. Microservices Architecture
+- Chia hệ thống thành các services độc lập
+- Mỗi service có database riêng
+- Services giao tiếp qua HTTP và Message Queue
 
-Chạy song song tests cho 2 services:
+### 2. Design Patterns
+- **API Gateway Pattern:** Centralized entry point
+- **Repository Pattern:** Tách business logic và data access
+- **Message Queue Pattern:** Async communication
 
-```yaml
-strategy:
-  matrix:
-    service: [auth, product]
-```
+### 3. Docker & Containerization
+- Mỗi service chạy trong container riêng
+- Docker Compose quản lý multi-container
+- Container networking và service discovery
 
-**Các bước:**
-1. Checkout code từ repository
-2. Setup Node.js 18
-3. Install dependencies cho từng service
-4. Run `npm test` với environment variables từ Secrets
+### 4. CI/CD
+- Automated testing với GitHub Actions
+- Automated build và push Docker images
+- Continuous integration trên mỗi commit
 
-**Thời gian:** ~2-3 phút
-
-### **Job 2: Build and Push Docker Images**
-
-Chạy **SAU** khi tests pass, build 4 services:
-
-```yaml
-strategy:
-  matrix:
-    service: [auth, product, order, api-gateway]
-```
-
-**Các bước:**
-1. Checkout code
-2. Setup Docker Buildx (hỗ trợ multi-platform builds)
-3. Login Docker Hub với credentials từ Secrets
-4. Build và push images với 2 tags:
-   - `latest` - Tag mới nhất
-   - `<commit-sha>` - Tag theo commit cụ thể (rollback dễ dàng)
-
-**Docker images được push:**
-```
-quocsanggl2004/eproject-auth:latest
-quocsanggl2004/eproject-auth:abc123def456
-quocsanggl2004/eproject-product:latest
-quocsanggl2004/eproject-product:abc123def456
-quocsanggl2004/eproject-order:latest
-quocsanggl2004/eproject-order:abc123def456
-quocsanggl2004/eproject-api-gateway:latest
-quocsanggl2004/eproject-api-gateway:abc123def456
-```
-
-**Thời gian:** ~5-7 phút (4 images song song)
-
-### **Job 3: Notify**
-
-Chạy **SAU** build job (dù success hay fail):
-
-```yaml
-needs: build-and-push
-if: always()
-```
-
-In ra console:
-- Build status (success/failure)
-- Commit SHA
-- User trigger workflow
+### 5. Authentication & Security
+- JWT (JSON Web Tokens) cho stateless authentication
+- Password hashing với bcrypt
+- Token-based authorization giữa services
 
 ---
 
-## 🎯 KIỂM TRA HOẠT ĐỘNG
+## 👨‍💻 Tác Giả
 
-### **1. Kiểm tra trên GitHub Actions**
-
-**Truy cập:** `https://github.com/<username>/<repo>/actions`
-
-**Kết quả mong đợi:**
-- ✅ Test job: Green checkmark
-- ✅ Build-and-push job: Green checkmark  
-- ✅ Notify job: Green checkmark
-
-**Xem logs chi tiết:**
-- Click vào workflow run
-- Click vào từng job để xem steps
-- Mở rộng step để xem logs
-
-### **2. Kiểm tra trên Docker Hub**
-
-**Truy cập:** `https://hub.docker.com/u/<username>`
-
-**Kết quả mong đợi:**
-- Thấy 4 repositories mới:
-  - `eproject-auth`
-  - `eproject-product`
-  - `eproject-order`
-  - `eproject-api-gateway`
-
-**Kiểm tra tags:**
-- Click vào repository
-- Tab **Tags** → Thấy `latest` và `<commit-sha>`
-
-### **3. Pull Images Về Local**
-
-```powershell
-# Pull image mới nhất
-docker pull quocsanggl2004/eproject-auth:latest
-
-# Kiểm tra images
-docker images | findstr eproject
-```
+**Tên:** Trần Quốc Sáng  
+**MSSV:** 22640841  
+**GitHub:** https://github.com/quocsanggl2004/22640841-TranQuocSang_EProject  
+**Docker Hub:** https://hub.docker.com/u/quocsanggl2004
 
 ---
 
-## 📸 CHỨNG MINH TRONG BÀI TRÌNH BÀY
 
-### **Bước 9: GitHub Actions (0.5 điểm)**
+## 📝 Ghi Chú
 
-**Cần chứng minh:**
+- **Database credentials:** 
+  - MongoDB username: `admin`
+  - MongoDB password: `password`
+  
+- **RabbitMQ credentials:**
+  - Username: `guest`
+  - Password: `guest`
 
-1. **Workflow đã chạy thành công:**
-   - Mở tab Actions trên GitHub
-   - Chỉ workflow run với checkmark xanh
-   - Mở logs của test job
-
-2. **Tự động trigger khi push:**
-   - Sửa file README.md (thêm 1 dòng bất kỳ)
-   - `git add . && git commit -m "Test CI/CD" && git push`
-   - Refresh tab Actions → Thấy workflow mới chạy
-
-3. **Tests chạy tự động:**
-   - Click vào test job
-   - Mở step "Run tests - auth"
-   - Chỉ output: `5 passing`
-   - Mở step "Run tests - product"  
-   - Chỉ output: `2 passing`
-
-### **Bước 10: CI/CD + Docker (0.5 điểm)**
-
-**Cần chứng minh:**
-
-1. **Docker images được build:**
-   - Click vào build-and-push job
-   - Mở step "Build and push Docker image - auth"
-   - Chỉ output: `pushing manifest for docker.io/...`
-
-2. **Images trên Docker Hub:**
-   - Mở Docker Hub trong browser
-   - Chỉ 4 repositories với tag `latest`
-   - Click vào 1 repo → Chỉ tab Tags → 2 tags
-
-3. **Pull và chạy image từ Docker Hub:**
-   ```powershell
-   # Pull image
-   docker pull quocsanggl2004/eproject-auth:latest
-   
-   # Verify image
-   docker images quocsanggl2004/eproject-auth
-   
-   # Run container (nếu cần demo)
-   docker run -d -p 3000:3000 --name test-auth quocsanggl2004/eproject-auth:latest
-   ```
+- **JWT Secret:** Mỗi service có secret riêng (nên thống nhất trong production)
 
 ---
 
-## 🔍 WORKFLOW FILE GIẢI THÍCH
 
-### **Trigger Events**
-
-```yaml
-on:
-  push:
-    branches: [ master, main ]  # Chạy khi push lên master/main
-  pull_request:
-    branches: [ master, main ]  # Chạy khi tạo PR vào master/main
-```
-
-### **Matrix Strategy**
-
-Chạy song song nhiều jobs thay vì tuần tự:
-
-```yaml
-strategy:
-  matrix:
-    service: [auth, product, order, api-gateway]
-# → Tạo 4 jobs song song thay vì 4 jobs tuần tự (tiết kiệm thời gian)
-```
-
-### **Job Dependencies**
-
-```yaml
-needs: test  # Build job chỉ chạy SAU khi test job thành công
-if: github.event_name == 'push'  # Chỉ chạy với push, không chạy với PR
-```
-
-### **Secrets Usage**
-
-```yaml
-username: ${{ secrets.DOCKER_USERNAME }}  # Lấy từ GitHub Secrets
-password: ${{ secrets.DOCKER_PASSWORD }}  # Không bao giờ log ra console
-```
-
-### **Docker Tags**
-
-```yaml
-tags: |
-  ${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:latest
-  ${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:${{ github.sha }}
-```
-
-**Ví dụ với commit `abc123def456`:**
-- `quocsanggl2004/eproject-auth:latest`
-- `quocsanggl2004/eproject-auth:abc123def456`
-
-**Lợi ích:**
-- `latest` - Dễ pull image mới nhất
-- `<commit-sha>` - Rollback về version cũ nếu cần
-
----
-
-## 🛠️ TROUBLESHOOTING
-
-### **Lỗi: Authentication failed (Docker Hub)**
-
-**Nguyên nhân:** Sai username hoặc password
-
-**Giải pháp:**
-1. Kiểm tra `DOCKER_USERNAME` trong Secrets (không có khoảng trắng)
-2. Tạo lại Access Token từ Docker Hub
-3. Update `DOCKER_PASSWORD` secret
-
-### **Lỗi: Tests failed**
-
-**Nguyên nhân:** MongoDB URI không đúng hoặc thiếu secrets
-
-**Giải pháp:**
-1. Kiểm tra các secrets: `MONGODB_AUTH_URI`, `MONGODB_PRODUCT_URI`, `JWT_SECRET`
-2. Chạy test local trước: `npm test`
-3. Xem logs chi tiết trong GitHub Actions
-
-### **Lỗi: Docker build failed**
-
-**Nguyên nhân:** Dockerfile có vấn đề hoặc thiếu dependencies
-
-**Giải pháp:**
-1. Build local trước: `docker build -t test-image ./auth`
-2. Kiểm tra Dockerfile syntax
-3. Xem logs build trong GitHub Actions
-
-### **Lỗi: Workflow không trigger**
-
-**Nguyên nhân:** File `.github/workflows/ci-cd.yml` không đúng vị trí
-
-**Giải pháo:**
-1. Đảm bảo file ở đúng path: `.github/workflows/ci-cd.yml`
-2. Push file lên GitHub
-3. Kiểm tra tab Actions có workflow không
-
----
-
-## 📚 TÀI LIỆU THAM KHẢO
-
-- GitHub Actions Documentation: https://docs.github.com/en/actions
-- Docker Hub: https://hub.docker.com/
-- GitHub Actions Marketplace: https://github.com/marketplace?type=actions
-
----
-
-## 📌 CHECKLIST HOÀN THÀNH
-
-- [ ] Tạo tài khoản Docker Hub
-- [ ] Tạo Access Token Docker Hub
-- [ ] Thêm 5 secrets vào GitHub repository
-- [ ] Push code với file `.github/workflows/ci-cd.yml`
-- [ ] Workflow chạy thành công trên GitHub Actions
-- [ ] 4 Docker images được push lên Docker Hub
-- [ ] Pull được images từ Docker Hub về local
-- [ ] Chuẩn bị demo: Mở sẵn tab GitHub Actions và Docker Hub
-
----
-
-**TỔNG ĐIỂM BƯỚC 9 + 10: 1.0 điểm**
-
-- ✅ GitHub Actions hoạt động: **0.5 điểm**
-- ✅ CI/CD + Docker Hub: **0.5 điểm**
-
-Good luck! 🚀
