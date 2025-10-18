@@ -7,9 +7,94 @@ on:
     branches: [ master, main ]
 
 jobs:
-  # Job 1: Build and Push Docker Images
+  # Job 1: Run Tests
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    # Install all dependencies
+    - name: Install auth dependencies
+      working-directory: ./auth
+      run: npm install
+    
+    - name: Install product dependencies
+      working-directory: ./product
+      run: npm install
+    
+    # Start auth service in background
+    - name: Start auth service
+      working-directory: ./auth
+      run: |
+        npm start &
+        sleep 10
+      env:
+        PORT: 3000
+        MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
+        JWT_SECRET: test_secret_key
+    
+    # Create test user for product tests
+    - name: Create test user
+      run: |
+        curl -X POST http://localhost:3000/register \
+          -H "Content-Type: application/json" \
+          -d '{"username":"testuser","password":"password123"}'
+    
+    # Run auth tests
+    - name: Run auth tests
+      working-directory: ./auth
+      run: npm test
+      env:
+        MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
+        JWT_SECRET: test_secret_key
+    
+    # Run product tests
+    - name: Run product tests
+      working-directory: ./product
+      run: npm test
+      env:
+        MONGODB_PRODUCT_URI: mongodb://admin:password@localhost:27017/product_db?authSource=admin
+        JWT_SECRET: test_secret_key
+        RABBITMQ_URL: amqp://localhost:5672
+        LOGIN_TEST_USER: testuser
+        LOGIN_TEST_PASSWORD: password123
+
+  # Job 2: Build and Push Docker Images
   build-and-push:
     runs-on: ubuntu-latest
+    needs: test
     if: github.event_name == 'push'
     
     strategy:
@@ -40,7 +125,7 @@ jobs:
         cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:latest
         cache-to: type=inline
 
-  # Job 2: Deploy Notification
+  # Job 3: Deploy Notification
   notify:
     runs-on: ubuntu-latest
     needs: build-and-push
