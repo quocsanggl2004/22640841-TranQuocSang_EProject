@@ -92,7 +92,7 @@ jobs:
         
         RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3000/register \
           -H "Content-Type: application/json" \
-          -d '{"username":"testuser","password":"password123"}')
+          -d '{"username":"productuser","password":"password123"}')
         
         HTTP_STATUS=$(echo "$RESPONSE" | grep HTTP_STATUS | cut -d: -f2)
         BODY=$(echo "$RESPONSE" | grep -v HTTP_STATUS)
@@ -108,7 +108,7 @@ jobs:
         echo "Verifying login..."
         LOGIN=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3000/login \
           -H "Content-Type: application/json" \
-          -d '{"username":"testuser","password":"password123"}')
+          -d '{"username":"productuser","password":"password123"}')
         
         LOGIN_STATUS=$(echo "$LOGIN" | grep HTTP_STATUS | cut -d: -f2)
         LOGIN_BODY=$(echo "$LOGIN" | grep -v HTTP_STATUS)
@@ -131,7 +131,7 @@ jobs:
         MONGODB_PRODUCT_URI: mongodb://admin:password@localhost:27017/product_db?authSource=admin
         JWT_SECRET: test_secret_key
         RABBITMQ_URL: amqp://localhost:5672
-        LOGIN_TEST_USER: testuser
+        LOGIN_TEST_USER: productuser
         LOGIN_TEST_PASSWORD: password123
     
     # Run auth tests AFTER (will create its own users and cleanup)
