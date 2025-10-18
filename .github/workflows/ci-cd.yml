@@ -59,16 +59,27 @@ jobs:
       working-directory: ./auth
       run: |
         nohup npm start > auth.log 2>&1 &
+        AUTH_PID=$!
+        echo "Auth service PID: $AUTH_PID"
         echo "Waiting for auth service to start..."
+        
+        SUCCESS=false
         for i in {1..30}; do
           if curl -f http://localhost:3000/health 2>/dev/null; then
             echo "Auth service is ready!"
+            SUCCESS=true
             break
           fi
           echo "Waiting... ($i/30)"
           sleep 2
         done
-        cat auth.log
+        
+        if [ "$SUCCESS" = false ]; then
+          echo "ERROR: Auth service failed to start!"
+          echo "=== Auth service logs ==="
+          cat auth.log
+          exit 1
+        fi
       env:
         PORT: 3000
         MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
@@ -78,16 +89,39 @@ jobs:
     - name: Create test user for product tests
       run: |
         echo "Creating test user for product tests..."
-        RESPONSE=$(curl -s -X POST http://localhost:3000/register \
+        
+        RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3000/register \
           -H "Content-Type: application/json" \
           -d '{"username":"testuser","password":"password123"}')
-        echo "Register response: $RESPONSE"
+        
+        HTTP_STATUS=$(echo "$RESPONSE" | grep HTTP_STATUS | cut -d: -f2)
+        BODY=$(echo "$RESPONSE" | grep -v HTTP_STATUS)
+        
+        echo "HTTP Status: $HTTP_STATUS"
+        echo "Response Body: $BODY"
+        
+        if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "400" ]; then
+          echo "ERROR: Failed to create user (status: $HTTP_STATUS)"
+          exit 1
+        fi
         
         echo "Verifying login..."
-        LOGIN=$(curl -s -X POST http://localhost:3000/login \
+        LOGIN=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3000/login \
           -H "Content-Type: application/json" \
           -d '{"username":"testuser","password":"password123"}')
-        echo "Login response: $LOGIN"
+        
+        LOGIN_STATUS=$(echo "$LOGIN" | grep HTTP_STATUS | cut -d: -f2)
+        LOGIN_BODY=$(echo "$LOGIN" | grep -v HTTP_STATUS)
+        
+        echo "Login HTTP Status: $LOGIN_STATUS"
+        echo "Login Response: $LOGIN_BODY"
+        
+        if [ "$LOGIN_STATUS" != "200" ]; then
+          echo "ERROR: Failed to login (status: $LOGIN_STATUS)"
+          exit 1
+        fi
+        
+        echo "Test user created and verified successfully!"
     
     # Run product tests FIRST (needs test user)
     - name: Run product tests
