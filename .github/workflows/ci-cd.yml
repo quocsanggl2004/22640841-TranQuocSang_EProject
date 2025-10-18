@@ -81,7 +81,7 @@ jobs:
           exit 1
         fi
       env:
-        PORT: 3000
+        AUTH_SERVICE_PORT: 3000
         MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
         JWT_SECRET: test_secret_key
     
