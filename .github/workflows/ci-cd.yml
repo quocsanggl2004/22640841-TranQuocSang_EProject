@@ -58,8 +58,17 @@ jobs:
     - name: Start auth service
       working-directory: ./auth
       run: |
-        npm start &
-        sleep 10
+        nohup npm start > auth.log 2>&1 &
+        echo "Waiting for auth service to start..."
+        for i in {1..30}; do
+          if curl -f http://localhost:3000/health 2>/dev/null; then
+            echo "Auth service is ready!"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 2
+        done
+        cat auth.log
       env:
         PORT: 3000
         MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
