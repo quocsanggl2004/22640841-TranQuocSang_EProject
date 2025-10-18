@@ -75,21 +75,21 @@ jobs:
         JWT_SECRET: test_secret_key
     
     # Create test user for product tests
-    - name: Create test user
+    - name: Create test user for product tests
       run: |
-        curl -X POST http://localhost:3000/register \
+        echo "Creating test user for product tests..."
+        RESPONSE=$(curl -s -X POST http://localhost:3000/register \
           -H "Content-Type: application/json" \
-          -d '{"username":"testuser","password":"password123"}'
+          -d '{"username":"testuser","password":"password123"}')
+        echo "Register response: $RESPONSE"
+        
+        echo "Verifying login..."
+        LOGIN=$(curl -s -X POST http://localhost:3000/login \
+          -H "Content-Type: application/json" \
+          -d '{"username":"testuser","password":"password123"}')
+        echo "Login response: $LOGIN"
     
-    # Run auth tests
-    - name: Run auth tests
-      working-directory: ./auth
-      run: npm test
-      env:
-        MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
-        JWT_SECRET: test_secret_key
-    
-    # Run product tests
+    # Run product tests FIRST (needs test user)
     - name: Run product tests
       working-directory: ./product
       run: npm test
@@ -99,6 +99,14 @@ jobs:
         RABBITMQ_URL: amqp://localhost:5672
         LOGIN_TEST_USER: testuser
         LOGIN_TEST_PASSWORD: password123
+    
+    # Run auth tests AFTER (will create its own users and cleanup)
+    - name: Run auth tests
+      working-directory: ./auth
+      run: npm test
+      env:
+        MONGODB_AUTH_URI: mongodb://admin:password@localhost:27017/auth_db?authSource=admin
+        JWT_SECRET: test_secret_key
 
   # Job 2: Build and Push Docker Images
   build-and-push:
