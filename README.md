@@ -110,6 +110,34 @@ Mở browser và truy cập:
 
 Tất cả phải trả về JSON: `{ "status": "... is running" }`
 
+### Bước 5: Truy cập RabbitMQ Management UI 
+
+**Khi nào cần mở?** Khi test API `/buy` để xem message queue hoạt động
+
+**URL:** http://localhost:15672
+
+**Thông tin đăng nhập:**
+- Username: `admin`
+- Password: `password`
+
+**Cách kiểm tra RabbitMQ đang hoạt động:**
+
+1. **Sau khi đăng nhập**, vào tab **Queues** (phía trên)
+2. Bạn sẽ thấy 2 queues:
+   - `orders` - Nhận message từ Product service khi user mua hàng
+   - `products` - Gửi kết quả về Product service sau khi tạo order
+
+3. **Test thử:**
+   - Gọi API `/buy` trong Postman (xem TEST 5 bên dưới)
+   - Quay lại RabbitMQ UI → Tab **Queues**
+   - Xem cột **Ready** và **Total** để thấy số message đã xử lý
+   - Click vào queue name → Tab **Get messages** để xem nội dung message
+
+**Ý nghĩa:**
+- **Message trong queue "orders"**: Product service đã gửi thông tin đơn hàng
+- **Message được consume**: Order service đã nhận và xử lý
+- **Message trong queue "products"**: Order service gửi kết quả về
+
 ---
 
 ## 📡 Test API với Postman
@@ -218,24 +246,8 @@ Body (JSON):
 
 **Kết quả mong đợi:**
 - Status: `201 Created`
-- Response:
-```json
-{
-  "_id": "64a7c9d0abc123456789",
-  "name": "Laptop Dell XPS 15",
-  "price": 25000000,
-  "description": "Laptop cao cấp cho dân văn phòng",
-  "createdAt": "2024-01-15T10:30:00.000Z",
-  "updatedAt": "2024-01-15T10:30:00.000Z"
-}
-```
 
-**⚠️ Quan trọng:** Copy `_id` của sản phẩm để dùng cho test tiếp theo!
-
-**📸 Chèn ảnh Postman ở đây:**
-![Create Product]()
-
----
+![alt text](public/images/8.png)
 
 ### TEST 5: Xem danh sách sản phẩm
 
@@ -251,66 +263,11 @@ Headers:
 
 **Kết quả mong đợi:**
 - Status: `200 OK`
-- Response: Array các sản phẩm
-```json
-[
-  {
-    "_id": "64a7c9d0abc123456789",
-    "name": "Laptop Dell XPS 15",
-    "price": 25000000,
-    "description": "Laptop cao cấp cho dân văn phòng",
-    "createdAt": "2024-01-15T10:30:00.000Z"
-  },
-  {
-    "_id": "64a7c9d1def987654321",
-    "name": "iPhone 15 Pro Max",
-    "price": 30000000,
-    "description": "Điện thoại cao cấp",
-    "createdAt": "2024-01-15T11:00:00.000Z"
-  }
-]
-```
+![alt text](public/images/9.png)
 
-**📸 Chèn ảnh Postman ở đây:**
-![Get All Products]()
+### TEST 6: Tạo đơn hàng trực tiếp
 
----
-
-### TEST 6: Xem chi tiết 1 sản phẩm
-
-**Nghiệp vụ:** Lấy thông tin chi tiết của một sản phẩm theo ID
-
-**Request:**
-```
-Method: GET
-URL: http://localhost:3003/products/64a7c9d0abc123456789
-Headers:
-  Authorization: Bearer <TOKEN>
-```
-
-**Lưu ý:** Thay `64a7c9d0abc123456789` bằng `_id` thật từ TEST 4
-
-**Kết quả mong đợi:**
-- Status: `200 OK`
-- Response:
-```json
-{
-  "_id": "64a7c9d0abc123456789",
-  "name": "Laptop Dell XPS 15",
-  "price": 25000000,
-  "description": "Laptop cao cấp cho dân văn phòng",
-  "createdAt": "2024-01-15T10:30:00.000Z"
-}
-```
-
-**📸 Chèn ảnh Postman ở đây:**
-![Get Product By ID]()
-
----
-
-### TEST 7: Tạo đơn hàng
-
-**Nghiệp vụ:** Đặt hàng sản phẩm, hệ thống sẽ gửi thông báo qua RabbitMQ
+**Nghiệp vụ:** Tạo đơn hàng trực tiếp vào Order Service (không qua RabbitMQ)
 
 **Request:**
 ```
@@ -321,59 +278,70 @@ Headers:
   Authorization: Bearer <TOKEN>
 Body (JSON):
 {
-  "productId": "64a7c9d0abc123456789",
-  "quantity": 2
+  "products": ["68f3c62cca8631bec4ab8a3e"],
+  "totalPrice": 25000000
 }
 ```
-
-**Lưu ý:** Thay `productId` bằng `_id` thật từ TEST 4
 
 **Kết quả mong đợi:**
 - Status: `201 Created`
-- Response:
-```json
+![alt text](public/images/10.png)
+
+### TEST 7: Mua hàng qua RabbitMQ (API /buy)
+
+**Nghiệp vụ:** Mua sản phẩm, hệ thống tự động tạo order qua RabbitMQ
+
+**Request:**
+```
+Method: POST
+URL: http://localhost:3001/products/buy
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer <TOKEN>
+Body (JSON):
 {
-  "_id": "64a7d0e1xyz789456123",
-  "userId": "507f1f77bcf86cd799439011",
-  "productId": "64a7c9d0abc123456789",
-  "quantity": 2,
-  "status": "pending",
-  "createdAt": "2024-01-15T12:00:00.000Z"
+  "ids": ["68f3c62cca8631bec4ab8a3e"]
 }
 ```
 
-**📸 Chèn ảnh Postman ở đây:**
-![Create Order]()
-
----
-
-### TEST 8: Kiểm tra RabbitMQ nhận message
-
-**Nghiệp vụ:** Verify rằng Order Service đã gửi message vào RabbitMQ khi tạo đơn hàng
-
-**Cách kiểm tra:**
-1. Mở browser
-2. Truy cập: http://localhost:15672
-3. Login với:
-   - Username: `guest`
-   - Password: `guest`
-4. Click tab **Queues**
-5. Click vào queue tên **ORDER**
-6. Xem phần **Messages** → Phải có ít nhất 1 message
+**Lưu ý:** Thay `ids` bằng array các `_id` sản phẩm từ TEST 5
 
 **Kết quả mong đợi:**
-- Queue `ORDER` tồn tại
-- Có messages trong queue
-- Message chứa thông tin đơn hàng (productId, quantity, userId)
+- Status: `201 Created`
+![alt text](public/images/11.png)
 
-**📸 Chèn ảnh RabbitMQ Management UI ở đây:**
-![RabbitMQ Queue]()
+**Flow hoạt động:**
+1. Product service gửi message vào queue `orders`
+2. Order service nhận message và tạo order trong MongoDB
+3. Order service gửi kết quả vào queue `products`
+4. Product service trả response về client
 
 ---
 
-### TEST 9: Xem danh sách đơn hàng
+### TEST 9: Kiểm tra RabbitMQ
 
-**Nghiệp vụ:** Lấy tất cả đơn hàng của user hiện tại
+**Nghiệp vụ:** Xem message queue đã xử lý đơn hàng từ TEST 8
+
+**Cách kiểm tra:**
+1. Mở browser: http://localhost:15672
+2. Login: `admin` / `password`
+3. Click tab **Queues**
+4. Xem 2 queues:
+   - `orders` - Nhận message từ Product service
+   - `products` - Gửi kết quả về Product service
+5. Click vào queue → Tab **Get messages** để xem nội dung
+
+**Kết quả mong đợi:**
+- Queues tồn tại và đã xử lý messages
+![alt text](public/images/12.png)
+
+- Trong **Overview** tab thấy biểu đồ message rate
+![alt text](public/images/13.png)
+---
+
+### TEST 10: Xem danh sách đơn hàng
+
+**Nghiệp vụ:** Lấy tất cả đơn hàng trong hệ thống
 
 **Request:**
 ```
@@ -385,24 +353,8 @@ Headers:
 
 **Kết quả mong đợi:**
 - Status: `200 OK`
-- Response: Array các đơn hàng của user
-```json
-[
-  {
-    "_id": "64a7d0e1xyz789456123",
-    "userId": "507f1f77bcf86cd799439011",
-    "productId": "64a7c9d0abc123456789",
-    "quantity": 2,
-    "status": "pending",
-    "createdAt": "2024-01-15T12:00:00.000Z"
-  }
-]
-```
-
-**📸 Chèn ảnh Postman ở đây:**
-![Get Orders]()
-
----
+- Response: Array các đơn hàng
+![alt text](public/images/14.png)
 
 ## 🔐 Xử Lý Lỗi Thường Gặp
 
@@ -467,10 +419,10 @@ Mỗi khi push code lên GitHub, hệ thống tự động:
 3. Xem workflow runs
 
 **📸 Chèn ảnh GitHub Actions ở đây:**
-![GitHub Actions]()
+![alt text](public/images/15.png)
 
 **📸 Chèn ảnh Docker Hub ở đây:**
-![Docker Hub]()
+![alt text](public/images/16.png)
 
 ---
 
@@ -515,7 +467,7 @@ EProject-Phase-1/
 │       ├── models/
 │       └── utils/
 ├── docker-compose.yml         # Docker orchestration
-├── README.md                  # File này
+├── README.md                  
 
 ```
 
@@ -567,8 +519,8 @@ EProject-Phase-1/
   - MongoDB password: `password`
   
 - **RabbitMQ credentials:**
-  - Username: `guest`
-  - Password: `guest`
+  - Username: `admin`
+  - Password: `password`
 
 - **JWT Secret:** Mỗi service có secret riêng (nên thống nhất trong production)
 
