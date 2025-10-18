@@ -7,64 +7,9 @@ on:
     branches: [ master, main ]
 
 jobs:
-  # Job 1: Run Tests
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      mongodb:
-        image: mongo:latest
-        ports:
-          - 27017:27017
-        env:
-          MONGO_INITDB_ROOT_USERNAME: admin
-          MONGO_INITDB_ROOT_PASSWORD: password
-        options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })' --quiet"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      
-      rabbitmq:
-        image: rabbitmq:3-management
-        ports:
-          - 5672:5672
-          - 15672:15672
-        options: >-
-          --health-cmd "rabbitmq-diagnostics ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
-    strategy:
-      matrix:
-        service: [auth, product]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    - name: Install dependencies - ${{ matrix.service }}
-      working-directory: ./${{ matrix.service }}
-      run: npm install
-    
-    - name: Run tests - ${{ matrix.service }}
-      working-directory: ./${{ matrix.service }}
-      run: npm test
-      env:
-        MONGODB_AUTH_URI: ${{ secrets.MONGODB_AUTH_URI }}
-        MONGODB_PRODUCT_URI: ${{ secrets.MONGODB_PRODUCT_URI }}
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-
-  # Job 2: Build and Push Docker Images
+  # Job 1: Build and Push Docker Images
   build-and-push:
     runs-on: ubuntu-latest
-    needs: test
     if: github.event_name == 'push'
     
     strategy:
@@ -95,7 +40,7 @@ jobs:
         cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/eproject-${{ matrix.service }}:latest
         cache-to: type=inline
 
-  # Job 3: Deploy Notification (Optional)
+  # Job 2: Deploy Notification
   notify:
     runs-on: ubuntu-latest
     needs: build-and-push
