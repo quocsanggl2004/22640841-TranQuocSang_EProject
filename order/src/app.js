@@ -160,10 +160,14 @@ class App {
   
           // Send fulfilled order to PRODUCTS service
           // Include orderId in the message
-          const { products: savedProducts, totalPrice } = newOrder.toJSON();
+          const orderData = newOrder.toJSON();
           channel.sendToQueue(
             "products",
-            Buffer.from(JSON.stringify({ orderId, user: username, products: savedProducts, totalPrice }))
+            Buffer.from(JSON.stringify({ 
+              orderId, 
+              products: orderData.products, 
+              totalPrice: orderData.totalPrice 
+            }))
           );
         });
       } catch (err) {
