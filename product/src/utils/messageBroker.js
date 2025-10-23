@@ -8,17 +8,20 @@ class MessageBroker {
 
   async connect() {
     console.log("Connecting to RabbitMQ...");
-
-    setTimeout(async () => {
-      try {
-        const connection = await amqp.connect(config.rabbitMQURI);
-        this.channel = await connection.createChannel();
-        await this.channel.assertQueue("products");
-        console.log("RabbitMQ connected");
-      } catch (err) {
-        console.error("Failed to connect to RabbitMQ:", err.message);
-      }
-    }, 20000); // delay 10 seconds to wait for RabbitMQ to start
+    try {
+      const connection = await amqp.connect(config.rabbitMQURI);
+      this.channel = await connection.createChannel();
+      
+      // Assert both queues
+      await this.channel.assertQueue("orders", { durable: true });
+      await this.channel.assertQueue("products", { durable: true });
+      
+      console.log("RabbitMQ connected and queues created");
+    } catch (err) {
+      console.error("Failed to connect to RabbitMQ:", err.message);
+      // Retry after 5 seconds
+      setTimeout(() => this.connect(), 5000);
+    }
   }
 
   async publishMessage(queue, message) {
