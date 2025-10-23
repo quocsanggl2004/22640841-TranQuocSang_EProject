@@ -418,10 +418,8 @@ Mỗi khi push code lên GitHub, hệ thống tự động:
 2. Click tab **Actions**
 3. Xem workflow runs
 
-**📸 Chèn ảnh GitHub Actions ở đây:**
 ![alt text](public/images/15.png)
 
-**📸 Chèn ảnh Docker Hub ở đây:**
 ![alt text](public/images/16.png)
 
 ---
